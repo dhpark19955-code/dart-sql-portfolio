@@ -162,6 +162,28 @@ FROM stg_filings_u f
 JOIN dim_company d ON d.corp_code = f.corp_code
 JOIN incr_scope  s ON s.corp_code = f.corp_code;
 
+-- ---------- core: filing_details (공시 본문 파싱값) ----------
+INSERT INTO filing_details (rcept_no, corp_code, doc_type, amount_krw, purpose_facility, purpose_operating, purpose_debt,
+                            purpose_acquisition, purpose_other, coupon_pct, ytm_pct, maturity_date, issue_method, conv_price,
+                            shares_new, shares_before, price_per_share, discount_pct, shares_reduced, reduction_ratio_pct,
+                            reduction_method, merger_ratio, counterparty, counterparty_assets_krw, counterparty_revenue_krw,
+                            truncated, parse_note)
+SELECT s.rcept_no, f.corp_code, s.doc_type,
+       CAST(NULLIF(s.amount_krw, '') AS BIGINT), CAST(NULLIF(s.purpose_facility, '') AS BIGINT),
+       CAST(NULLIF(s.purpose_operating, '') AS BIGINT), CAST(NULLIF(s.purpose_debt, '') AS BIGINT),
+       CAST(NULLIF(s.purpose_acquisition, '') AS BIGINT), CAST(NULLIF(s.purpose_other, '') AS BIGINT),
+       CAST(NULLIF(s.coupon_pct, '') AS DOUBLE), CAST(NULLIF(s.ytm_pct, '') AS DOUBLE),
+       NULLIF(s.maturity_date, ''), NULLIF(s.issue_method, ''), CAST(NULLIF(s.conv_price, '') AS BIGINT),
+       CAST(NULLIF(s.shares_new, '') AS BIGINT), CAST(NULLIF(s.shares_before, '') AS BIGINT),
+       CAST(NULLIF(s.price_per_share, '') AS BIGINT), CAST(NULLIF(s.discount_pct, '') AS DOUBLE),
+       CAST(NULLIF(s.shares_reduced, '') AS BIGINT), CAST(NULLIF(s.reduction_ratio_pct, '') AS DOUBLE),
+       NULLIF(s.reduction_method, ''), CAST(NULLIF(s.merger_ratio, '') AS DOUBLE), NULLIF(s.counterparty, ''),
+       CAST(NULLIF(s.counterparty_assets_krw, '') AS BIGINT), CAST(NULLIF(s.counterparty_revenue_krw, '') AS BIGINT),
+       CAST(NULLIF(s.truncated, '') AS INTEGER), NULLIF(s.parse_note, '')
+FROM stg_filing_details s
+JOIN filings_universe f ON f.rcept_no = s.rcept_no
+JOIN incr_scope      i ON i.corp_code = f.corp_code;
+
 -- ---------- core: prices_universe ----------
 -- 같은 날짜가 두 번 오면 거래량 큰 행, 종가 없거나 0 이면 제외. 유니버스 종목만
 INSERT INTO prices_universe (stock_code, trade_date, trade_seq, close, adj_close, volume)

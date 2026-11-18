@@ -114,6 +114,7 @@ erDiagram
 | q15 | 공시 → 이듬해 실적 | filings_universe, v_fin_annual | `LEAD`, 뼈대 `LEFT JOIN`, 그룹 중앙값 |
 | q16 | 공시 x 연간 주가 (q7 확장) | prices_universe, v_universe_index, filings_universe | `FIRST_VALUE`/`LAST_VALUE`, 초과수익, 그룹 중앙값 |
 | q17 | 공시일 이벤트 윈도우 | filings_universe, prices_universe, v_universe_index | 상관 서브쿼리 `MAX(trade_seq)`, `trade_seq + k` JOIN, 중앙값·양수 비율 |
+| q18 | 본문 금액 x 재무 x 주가 | filing_details, filings_universe, v_fin_annual, prices_universe | 규모 구간 `CASE`, `NOT EXISTS` 중복 제거, 창 함수 중앙값, 섹션 `UNION ALL` |
 
 ## 5. 2단계 계층 파이프라인 (KOSPI 시총 상위 200사)
 
@@ -183,5 +184,6 @@ erDiagram
 - **`v_fin_annual` 뷰**: 회사·연도에 연결(CFS)이 있으면 연결, 없으면 별도(OFS). q10 이후 분석 쿼리는 전부 이 뷰를 읽는다.
 - **`incr_scope`**: build_db.py 가 매 실행마다 채우는 회사 목록. 04 SQL 의 core·mart·filings 단계가 전부 이 표와 JOIN 하므로, 전체 빌드와 증분 적재가 같은 SQL 을 쓴다.
 - **공시 유형 분류**: `filings_universe.event_type` 은 04 의 CASE 로 제목 키워드를 분류한다. 규칙이 바뀌면 재빌드로 재분류된다.
+- **공시 본문 축**: SQL 로 할 수 없는 원문 파싱은 `scripts/parse_filing_docs.py` 가 맡고, 산출 CSV 는 다른 원천과 똑같이 staging(`stg_filing_details`) → core(`filing_details`) 로 들어간다. 파서가 바뀌면 CSV 를 다시 만들고 재빌드하면 된다.
 - **주가 축**: `prices_universe` 는 종목별 거래일 순번 `trade_seq` 를 가진다. 이벤트 윈도우(q17)는 달력이 아니라 이 순번으로 +k 거래일을 센다. `v_universe_index` 는 등가중 지수 뷰로, `EXP(SUM(LN(1 + r)) OVER (...))` 누적곱이다.
 - **엔진 이식성**: `scripts/run_duckdb.py` 가 03·04·q10~q15 를 DuckDB 로 실행해 SQLite 와 대조한다. 피한 문법은 `docs/ENGINE_PARITY.md`.

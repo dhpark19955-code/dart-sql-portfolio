@@ -138,6 +138,38 @@ CREATE TABLE stg_prices_u (
     source_file TEXT
 );
 
+-- (e) 공시 본문 파싱 결과 (scripts/parse_filing_docs.py 산출). 값은 문자열 그대로
+DROP TABLE IF EXISTS stg_filing_details;
+CREATE TABLE stg_filing_details (
+    rcept_no                 TEXT,
+    doc_type                 TEXT,
+    amount_krw               TEXT,
+    purpose_facility         TEXT,
+    purpose_operating        TEXT,
+    purpose_debt             TEXT,
+    purpose_acquisition      TEXT,
+    purpose_other            TEXT,
+    coupon_pct               TEXT,
+    ytm_pct                  TEXT,
+    maturity_date            TEXT,
+    issue_method             TEXT,
+    conv_price               TEXT,
+    shares_new               TEXT,
+    shares_before            TEXT,
+    price_per_share          TEXT,
+    discount_pct             TEXT,
+    shares_reduced           TEXT,
+    reduction_ratio_pct      TEXT,
+    reduction_method         TEXT,
+    merger_ratio             TEXT,
+    counterparty             TEXT,
+    counterparty_assets_krw  TEXT,
+    counterparty_revenue_krw TEXT,
+    truncated                TEXT,
+    parse_note               TEXT,
+    source_file              TEXT
+);
+
 -- ---------- core (회사 x 연도 x 계정 1행, 원 단위 정수, 표준 계정 매핑) ----------
 DROP TABLE IF EXISTS fs_fact;
 CREATE TABLE fs_fact (
@@ -183,6 +215,38 @@ CREATE TABLE prices_universe (
     PRIMARY KEY (stock_code, trade_date)
 );
 CREATE INDEX idx_prices_u_seq ON prices_universe (stock_code, trade_seq);
+
+-- 공시 1건의 핵심 수치 (core). 자금조달 금액·조건, 증자·감자 주식수, 합병비율·상대회사 재무
+DROP TABLE IF EXISTS filing_details;
+CREATE TABLE filing_details (
+    rcept_no                 TEXT PRIMARY KEY,
+    corp_code                TEXT NOT NULL,
+    doc_type                 TEXT NOT NULL,              -- bond / capital_security / rights_issue / bonus_issue / reduction / merger / split / acquisition / bond_repurchase
+    amount_krw               BIGINT,                     -- 조달·취득 금액 (원)
+    purpose_facility         BIGINT,
+    purpose_operating        BIGINT,
+    purpose_debt             BIGINT,
+    purpose_acquisition      BIGINT,
+    purpose_other            BIGINT,
+    coupon_pct               DOUBLE,
+    ytm_pct                  DOUBLE,
+    maturity_date            TEXT,
+    issue_method             TEXT,
+    conv_price               BIGINT,
+    shares_new               BIGINT,
+    shares_before            BIGINT,
+    price_per_share          BIGINT,
+    discount_pct             DOUBLE,
+    shares_reduced           BIGINT,
+    reduction_ratio_pct      DOUBLE,
+    reduction_method         TEXT,
+    merger_ratio             DOUBLE,
+    counterparty             TEXT,
+    counterparty_assets_krw  BIGINT,
+    counterparty_revenue_krw BIGINT,
+    truncated                INTEGER,
+    parse_note               TEXT
+);
 
 -- ---------- mart (회사 x 연도 x 기준 1행 와이드, 백만원) ----------
 DROP TABLE IF EXISTS fin_annual_wide;

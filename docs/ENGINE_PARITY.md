@@ -1,6 +1,6 @@
 # 엔진 대조 - SQLite vs DuckDB
 
-생성: 2026-11-18 23:40 · `python scripts/run_duckdb.py`
+생성: 2026-11-19 00:24 · `python scripts/run_duckdb.py`
 
 같은 `sql/03_schema_layered.sql`, `sql/04_load_layered.sql`, `sql/q10·q12·q13` 을 두 엔진에서 실행한 결과 비교.
 diff_rows = 정렬·반올림(소수 4자리) 후 문자열로 비교했을 때 다른 행 수. -1 = 컬럼 구성이 다름.
@@ -13,6 +13,7 @@ diff_rows = 정렬·반올림(소수 4자리) 후 문자열로 비교했을 때 
 | v_qc_company_coverage | 200 | 200 | 0 |
 | filings_universe | 778 | 778 | 0 |
 | prices_universe | 139,982 | 139,982 | 0 |
+| filing_details | 72 | 72 | 0 |
 | v_universe_index | 730 | 730 | 0 |
 | q10_universe_mapping_monitor | 255 | 255 | 0 |
 | q12_universe_sector_profile | 19 | 19 | 0 |
@@ -21,10 +22,11 @@ diff_rows = 정렬·반올림(소수 4자리) 후 문자열로 비교했을 때 
 | q15_restructure_next_year | 10 | 10 | 0 |
 | q16_universe_filings_vs_price | 6 | 6 | 0 |
 | q17_event_window | 22 | 22 | 0 |
+| q18_filing_amounts | 23 | 23 | 0 |
 
 ## 빌드 시간 (dim + staging 적재 + 04 실행, 같은 PC)
 
-- SQLite 3.4초 / DuckDB 2.6초 (CSV 15개, staging 약 154,000행 기준. pandas 적재 시간 포함)
+- SQLite 5.0초 / DuckDB 3.6초 (CSV 15개, staging 약 154,000행 기준. pandas 적재 시간 포함)
 
 ## 엔진 차이로 SQL 에서 피한 것
 

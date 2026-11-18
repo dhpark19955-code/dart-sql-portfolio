@@ -51,6 +51,10 @@ SQL을 고쳤으면 `run_queries.py` 를 다시 돌려 `results/` 를 갱신하�
   - 공시 본문 파싱(금액·대상)은 미구현
 - [x] q7 확장 (11-18): `scripts/fetch_prices_universe.py`(yfinance 198사 139,982행) → `stg_prices_u` → `prices_universe`(trade_seq) + `v_universe_index`(등가중, EXP/LN 누적) → q16 연간 공시 x 주가, q17 이벤트 윈도우(+1·+5·+20 거래일 초과수익)
   - UNION 결과에 ORDER BY 식을 쓰려면 바깥 SELECT 로 감쌀 것(SQLite). v_universe_index 는 뷰라 참조마다 재계산 - 행마다 상관 서브쿼리로 뷰를 부르면 매우 느림(점검 쿼리에서 10분 초과). 대량 참조면 테이블화
+- [x] 공시 본문 파싱 (11-19): 정정 제외 자금조달·구조변경 72건 원문을 `data/raw/layered_docs/<rcept_no>.txt` 로(worker 2명이 dart_get_document 결과를 전사, max_chars 5,000/9,000), `scripts/parse_filing_docs.py` → `layered_docs_parsed/filing_details.csv` → `stg_filing_details` → `filing_details`, q18
+  - 원문 형식: " | 라벨 | \n | 값 | ". 파서는 라벨 → 다음 토큰. 합병비율은 값이 줄바꿈으로 쪼개져 토큰 3개를 붙여 정규식, 무증자 합병은 "1.0000000 : 0.0000000" → 0. 자기전환사채 취득은 "8. 취득금액" 다음 "금액(원)" 라벨이 한 번 더 옴
+  - Write 도구가 줄 끝 공백을 지워 worker 가 보정함(글자 수 일치 확인). 수치 검증은 내가 직접 받은 4건과만 대조
+  - 영구전환사채 = 전환사채 공시 + 자본인정채무증권 공시 2건(같은 날·같은 금액) → q18 에서 NOT EXISTS 로 사채 쪽만
 
 남은 작업
 1. **GitHub 배포 (새 public 레포 `dart-sql-portfolio`)**: 사용자가 2026-11-18 "새 레포로 push" 승인. 대상 계정 = `dhpark19955-code`(사용자 지정).
@@ -72,7 +76,7 @@ powershell -ExecutionPolicy Bypass -File .\publish_github.ps1
    - 스크립트 자체는 `.gitignore` 로 레포에서 제외. `.git` 은 이미 init·스테이징만 된 상태(커밋 없음)
    - 2026-11-18 가짜 gh 로 사본에서 시험 완료(정상 경로·origin 기존 경로·키 원문 차단). 실제 GitHub 생성·push 는 미검증
 
-2. (선택) 공시 본문 파싱(합병 비율·조달 금액)으로 q15·q17 을 금액·규모 기준으로. 이벤트 윈도우에 베타 조정·실적발표일 제외
+2. (선택) 이벤트 윈도우에 베타 조정·실적발표일 제외. 공시 본문을 72건 이상(자기주식 457건)으로 넓히기 - 자기주식 취득·처분 금액 파싱
 3. (선택) PostgreSQL 호환성: q7 의 `PARTITION BY yr, range_pct IS NULL`, `SUBSTR` 등은 Postgres 에서도 동작하지만 실제 검증은 안 함.
 
 ## 파일 역할 요약
@@ -90,4 +94,5 @@ powershell -ExecutionPolicy Bypass -File .\publish_github.ps1
 | `data/dim/*.csv` | 사람이 관리하는 보조테이블 원본 (매핑 추가는 여기에 행 추가 → 재빌드) |
 | `scripts/run_duckdb.py` | 같은 03/04/q10~q15 를 DuckDB 로 실행해 SQLite 와 대조 → docs/ENGINE_PARITY.md |
 | `scripts/fetch_prices_universe.py` | yfinance 200사 일별 주가 → data/raw/layered_prices |
-| `sql/q1~q17` | 분석 쿼리 (q8 분기 품질, q9 분기 추세, q10 유니버스 모니터, q11 교차검증, q12 업종, q13 스크리닝, q14 공시x재무, q15 공시→이듬해, q16 공시x연간주가, q17 이벤트 윈도우) |
+| `scripts/parse_filing_docs.py` | 공시 본문 72건 → filing_details.csv (라벨 기준 파서) |
+| `sql/q1~q18` | 분석 쿼리 (q8 분기 품질, q9 분기 추세, q10 유니버스 모니터, q11 교차검증, q12 업종, q13 스크리닝, q14 공시x재무, q15 공시→이듬해, q16 공시x연간주가, q17 이벤트 윈도우, q18 본문 금액) |

@@ -8,13 +8,14 @@
 | 대상 | 1단계: 국내 상장 13개사(인터넷플랫폼 4 · IT인프라/SaaS 5 · 게임 4) 심층 · 2단계: KOSPI 시가총액 상위 200사 유니버스 |
 | 데이터 | 13사: 연결 재무제표 연간 FY2020~2025 · 분기 2023~2025, 일별 주가 2023~2025, 주요사항보고서 2023~2025 · 200사: 사업보고서 2021~2025 전체 주요계정(전기·전전기 열 포함 FY2019~2025), 일별 주가 2023~2025(198사), 주요사항보고서 2023~2025 |
 | 엔진 | SQLite (3.35 이상, 3.50.4에서 실행). 2~4단계 계층 파이프라인은 DuckDB 2.0 에서도 같은 SQL 로 빌드해 결과 대조([`docs/ENGINE_PARITY.md`](docs/ENGINE_PARITY.md)) |
-| 규모 | 1단계 테이블 6개 + 계층 테이블 13개(dim 4 · staging 4 · core 3 · mart 1 · etl_log), SQL 19개 파일(약 1,700줄), 분석 쿼리 17개. SQLite 와 DuckDB 에서 같은 SQL 실행 확인 |
+| 규모 | 1단계 테이블 6개 + 계층 테이블 15개(dim 4 · staging 5 · core 4 · mart 1 · etl_log), SQL 20개 파일(약 1,900줄), 분석 쿼리 18개. SQLite 와 DuckDB 에서 같은 SQL 실행 확인 |
 
 ## 결과물
 
 | 결과물 | 위치 | 내용 |
 |---|---|---|
-| 분석 결과 17건 | [`results/`](results/) | 질문별 md 1개: 질문·기법 주석 + 결과 표 + 실행한 SQL 전문 |
+| 분석 결과 18건 | [`results/`](results/) | 질문별 md 1개: 질문·기법 주석 + 결과 표 + 실행한 SQL 전문 |
+| 공시 본문 파서 | [`scripts/parse_filing_docs.py`](scripts/parse_filing_docs.py), [`data/raw/layered_docs/`](data/raw/layered_docs/) | 주요사항보고서 원문 72건(자금조달·구조변경)에서 조달 금액·이율·발행가·합병비율·상대회사 재무를 라벨 기준으로 추출 → `filing_details` |
 | 계층 파이프라인(2~4단계) | [`sql/03_schema_layered.sql`](sql/03_schema_layered.sql), [`sql/04_load_layered.sql`](sql/04_load_layered.sql), [`data/dim/`](data/dim/) | raw → staging → core → mart 4계층, 보조테이블 4개, 품질점검 뷰, 전체 재무제표 API 대체 경로(account_id 매핑), 공시 이벤트 분류 |
 | 증분 적재 | `python scripts/build_db.py --incremental` | 새 raw 파일만 적재하고 그 파일의 회사만 재계산. 전체 빌드와 체크섬 동일 확인 |
 | 엔진 대조 | [`scripts/run_duckdb.py`](scripts/run_duckdb.py) → [`docs/ENGINE_PARITY.md`](docs/ENGINE_PARITY.md) | 같은 SQL 을 DuckDB 로 실행해 core·mart·쿼리 결과를 SQLite 와 행 단위 비교 |
@@ -47,6 +48,7 @@
 | [Q15](results/q15_restructure_next_year.md) | 구조변경 공시 다음 해 매출은 | 구조변경 공시 7건의 다음 해 매출 증가율 중앙값 +4.1%, 자금조달만 16건 +9.8%, 무공시 278건 +5.7%. 표본이 작아 방향만 |
 | [Q16](results/q16_universe_filings_vs_price.md) | (q7 확장) 공시를 낸 해의 주가는 | 자기주식 공시 회사·연도 187건 연간 수익률 중앙값 +26.3% vs 미공시 394건 +17.2%, 변동폭 74.3% vs 67.9%. 자금조달도 +26.7% vs +19.0% |
 | [Q17](results/q17_event_window.md) | 공시일 전후 주가는 | 549건 이벤트 윈도우: 자기주식 455건 +1일 초과수익 중앙값 -0.1%(양수 48%), 구조변경 17건 +1.0%(양수 71%), 자금조달 48건 +5일 -0.6%. 평균적으로는 거의 반응 없음 |
+| [Q18](results/q18_filing_amounts.md) | 본문의 금액을 붙이면 | 사채 발행액이 자본총계의 5% 초과 9건은 +5일 초과수익 중앙값 -0.6%(양수 44%), 1~5% 5건 +0.8%. 유상증자 5% 초과 6건 -1.7%(양수 17%). 셀트리온 합병 상대의 매출은 자사 매출의 90.6%, 이듬해 매출 +63.4% |
 
 ## SQL로 한 것
 
@@ -71,6 +73,7 @@
 | 공시 이벤트 분류 (4단계) | 주요사항보고서 제목을 CASE 로 자기주식·자금조달·구조변경·기타로 분류, 정정공시 플래그. 재무 mart 와 JOIN 해 그룹별 중앙값 비교(q14), LEAD 로 이듬해 실적(q15) | `sql/04_load_layered.sql`, q14, q15 |
 | 등가중 지수 (SQL) | 종목별 일간 수익률(`LAG`)의 날짜 평균을 `EXP(SUM(LN(1 + r)) OVER (...))` 로 누적한 유니버스 지수 뷰. 이벤트 윈도우의 "시장 대비" 기준 | `v_universe_index` |
 | 이벤트 윈도우 | 공시일 직전 거래일을 상관 서브쿼리(`MAX(trade_seq) WHERE trade_date < 공시일`)로 찾고 `trade_seq + k` 로 JOIN 해 +1·+5·+20 거래일 종가를 같은 행에. 달력이 아니라 거래일 순번으로 세는 것이 핵심 | q17 |
+| 공시 본문 파싱 | 원문은 " \| 항목 \| 값 \| " 로 납작해진 표. 파이썬 파서가 라벨 → 다음 토큰 규칙으로 유형별 수치를 뽑고(SQL 로는 안 되는 부분), 결과 CSV 는 다른 원천과 같이 staging → core(`filing_details`)로 들어간다. 영구전환사채가 사채·자본증권 두 공시로 나오는 중복은 SQL(`NOT EXISTS`)로 제거 | `scripts/parse_filing_docs.py`, q18 |
 | 품질 점검 | 회계 항등식, 결측 탐지(`LEFT JOIN ... IS NULL`), 거래일 수 비교를 `UNION ALL` 로 한 표에 | q6 |
 
 ```mermaid
@@ -121,6 +124,8 @@ flowchart LR
 | core | `filings_universe` | 공시 1건 1행 + 유형 분류(자기주식 510 · 자금조달 158 · 구조변경 88 · 기타 22) | 778 | rcept_no |
 | staging | `stg_prices_u` | yfinance 일별 주가, 198사 x 2023~2025 (케이뱅크·KB발해인프라는 상장이 늦어 없음) | 139,982 | (없음, 원문) |
 | core | `prices_universe` | 종목 x 거래일 1행, `trade_seq` 거래일 순번 | 139,982 | stock_code + trade_date |
+| staging | `stg_filing_details` | 공시 본문 파서 산출 CSV (문자열) | 72 | (없음) |
+| core | `filing_details` | 공시 1건의 핵심 수치: 조달액·용도·이율·만기·발행가·주식수·감자비율·합병비율·상대회사 재무 | 72 | rcept_no |
 | log | `etl_log` | raw 파일 단위 적재 기록 (증분 적재의 기준) | 14 | log_id |
 
 ```
@@ -253,6 +258,14 @@ companies 1 ──< filings               (corp_code)
 - 사실: +5일 초과수익 절댓값 상위는 DB하이텍 자사주 처분(2025-02, +34.4%), 아모레퍼시픽 자사주 처분(2024-08, -32.9%) - 실적 발표와 겹친 날이 많다
 - 추론: 주요사항보고서는 평균적으로 당일 주가를 거의 움직이지 않는다. q16 의 "공시 있던 해 수익률 높음" 은 공시 효과가 아니라 주가가 오른 해에 자사주 처분·조달 공시가 늘어나는 역방향으로 읽는 편이 맞다. 베타 미조정·통계 검정 없음
 
+### Q18. 공시 본문 금액 x 재무 x 주가 반응 - [q18](results/q18_filing_amounts.md)
+기법: 파싱 테이블을 공시·재무·주가에 JOIN, 조달액 / 직전 연도 자본총계 로 규모 구간(CASE), 구간별 +5일 초과수익 중앙값, 합병은 상대회사 매출 / 자사 매출 과 LEAD 이듬해 매출, 파서 성공률을 같은 표에
+- 사실: 정정 제외 자금조달·구조변경 72건 본문에서 유형별 핵심값(조달액·합병비율·감자 주식수 등) 72건 전부 추출. 직접 받아 둔 4건(호텔신라 교환사채 1,328억, 에이피알 유상증자 80억, 셀트리온 합병비율 1:0.4492620, 카카오 감자 1,897,441주)과 일치
+- 사실: 사채 발행액이 직전 연도 자본총계의 5% 를 넘는 9건은 +5일 초과수익 중앙값 -0.6%(양수 44%), 1~5% 5건 +0.8%(60%), 1% 미만 2건 +14.2%. 유상증자 5% 초과 6건 -1.7%(양수 17%)
+- 사실: 신종자본증권(자본으로 인정되는 채무증권) 17건은 대부분 금융사·항공사의 자본확충이며, 영구전환사채는 사채 공시와 자본증권 공시가 같은 날 같은 금액으로 2건 나온다(아시아나항공·한화오션 등)
+- 사실: 합병 6건 중 상대회사 매출이 자사의 90% 이상인 셀트리온(2023, 헬스케어)·HD건설기계(2025, 인프라코어). 셀트리온은 이듬해 매출 +63.4%
+- 추론: 금액을 붙이면 "조달 공시" 가 한 덩어리가 아니라는 것이 보인다 - 자본 대비 큰 증자는 반응이 나쁘고, 작은 사채는 중립. 다만 구간당 2~9건이라 방향 확인 수준
+
 </details>
 
 ## 실행 방법
@@ -273,6 +286,12 @@ python scripts/build_db.py --incremental
 
 ```bash
 python scripts/fetch_prices_universe.py
+```
+
+공시 본문을 다시 파싱하려면 (`data/raw/layered_docs/*.txt` 가 있어야 함):
+
+```bash
+python scripts/parse_filing_docs.py
 ```
 
 DuckDB 로 같은 SQL 을 실행해 SQLite 결과와 대조하려면 (`pip install duckdb` 필요):
@@ -300,6 +319,7 @@ DB만 열어 보려면 빌드 없이 `sqlite3 dart_sector.db` 로 바로 쿼리�
 - 2단계 유니버스는 KOSPI200 공식 구성종목이 아니라 FinanceDataReader 의 KOSPI 시가총액 상위 200 보통주(2026-11-18)입니다. pykrx 의 지수 구성종목 조회는 KRX 로그인이 필요해 쓰지 않았습니다.
 - 주요계정 API(fnlttMultiAcnt)는 금융업을 2023년 사업보고서부터만 주고, 은행 단독 법인·인프라펀드·일부 신규 상장사는 아예 주지 않습니다. 3단계에서 전체 재무제표 API(fnlttSinglAcntAll)로 대체 수집해 카카오뱅크·케이뱅크·에코프로머티는 별도 기준으로 2023~2025 를 채웠습니다. 맥쿼리인프라·KB발해인프라(펀드)는 두 API 모두 없고, 금융업 2021~2022 도 두 API 모두 없습니다(KB금융·삼성생명으로 확인).
 - 공시 이벤트 분류는 제목 키워드 기준이라 거칠고, 공시 본문(금액·대상)은 읽지 않았습니다. 200사 공시 목록 778건은 보조 에이전트가 옮겨 적은 것으로, 1단계에서 받아 둔 6개사 56건과 전부 일치하는 것만 확인했습니다.
+- 공시 본문은 72건(정정 제외 자금조달·구조변경)만, 앞 5,000자(합병·분할·양수는 9,000자)만 받았습니다. 핵심 표는 그 안에 있지만 긴 본문의 뒷부분(기타 투자판단 사항)은 없습니다. 원문은 보조 에이전트가 API 응답을 옮겨 적은 것이라 글자 수 대조만 됐고, 수치는 제가 직접 받은 4건과만 비교했습니다. 파서는 라벨 → 다음 토큰 규칙이라 표 양식이 다른 공시(해외 발행, 종류주식)는 틀릴 수 있습니다.
 - 200사 주가는 yfinance 에서 받은 것이라 KRX 공식 종가와 다를 수 있고, 수정종가 기준 수익률입니다. 등가중 지수는 유니버스 198사의 일간 수익률 단순평균 누적이라 KOSPI 지수와 다르며, 이벤트 윈도우는 베타를 조정하지 않았습니다.
 - 업종은 DART 기업개황 업종코드(KSIC) 앞 2자리입니다. 지주회사는 '전문서비스(71)' 로, 화장품은 '화학(20)' 으로 묶이는 등 사업 실질과 다를 수 있습니다.
 - 2단계 항등식 실패 1건(SK텔레콤 2022, -30백만원)은 같은 보고서 안의 API 값이라 그대로 두었습니다.
@@ -331,6 +351,8 @@ dart-sql-portfolio/
 │   ├── layered_full/                 # 3단계: 전체 재무제표 API (주요계정 API 가 안 주는 3사, 별도)
 │   ├── layered_filings/              # 4단계: 200사 주요사항보고서 목록 2023~2025
 │   ├── layered_prices/               # 4단계: 198사 일별 주가 2023~2025 (yfinance)
+│   ├── layered_docs/                 # 공시 본문 원문 72건 (rcept_no.txt)
+│   ├── layered_docs_parsed/          # 파서 산출 filing_details.csv
 │   ├── companies.csv                       # 회사 마스터 (섹터 분류)
 │   ├── dart_key_accounts_fy2025.csv        # DART 주요계정 원형 FY2023~2025
 │   ├── dart_key_accounts_fy2022.csv        # DART 주요계정 원형 FY2020~2022
@@ -346,6 +368,7 @@ dart-sql-portfolio/
 │   ├── fetch_dart.py         # OpenDART API (DART_API_KEY 필요)
 │   ├── fetch_prices.py       # yfinance + KRX 목록 (13사)
 │   ├── fetch_prices_universe.py  # yfinance 200사
+│   ├── parse_filing_docs.py  # 공시 본문 → 핵심 수치 CSV
 │   ├── build_db.py           # CSV -> SQLite (--incremental 지원)
 │   ├── run_duckdb.py         # 같은 SQL 을 DuckDB 로 빌드해 SQLite 와 대조
 │   └── run_queries.py        # q*.sql -> results/*.md
@@ -354,7 +377,7 @@ dart-sql-portfolio/
 │   ├── 02_load_clean.sql     # 정제 (UNPIVOT·형변환·중복제거·PIVOT)
 │   ├── 03_schema_layered.sql # 2단계 계층 테이블·보조테이블
 │   ├── 04_load_layered.sql   # 2단계 staging → core → mart, 품질점검 뷰
-│   └── q1 ~ q17 *.sql        # 분석 쿼리 (질문·기법 주석 포함)
+│   └── q1 ~ q18 *.sql        # 분석 쿼리 (질문·기법 주석 포함)
 └── results/                  # 쿼리별 결과 표 + SQL
 ```
 
@@ -368,3 +391,4 @@ dart-sql-portfolio/
 - 200사 유니버스: FinanceDataReader KOSPI 종목 목록(시가총액), 2026-11-18. 업종코드·결산월: DART 기업개황 API. 업종 분류명: KSIC 10차
 - 200사 공시 목록: DART 공시검색 API (list.json, pblntf_ty=B), 2023-01-01 ~ 2025-12-31. 대체 재무: DART 단일회사 전체 재무제표 API (fnlttSinglAcntAll, 별도)
 - 200사 주가: Yahoo Finance (yfinance), 2023-01-01 ~ 2025-12-31, 수집 2026-11-18
+- 공시 본문: 금융감독원 DART 공시 원문 (document.xml 텍스트), 72건, 수집 2026-11-18~19

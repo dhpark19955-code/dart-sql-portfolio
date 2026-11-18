@@ -29,11 +29,12 @@ RAW_LAYERED = ROOT / "data" / "raw" / "layered"
 RAW_LAYERED_FULL = ROOT / "data" / "raw" / "layered_full"
 RAW_LAYERED_FILINGS = ROOT / "data" / "raw" / "layered_filings"
 RAW_LAYERED_PRICES = ROOT / "data" / "raw" / "layered_prices"
+RAW_LAYERED_DOCS = ROOT / "data" / "raw" / "layered_docs_parsed"
 SQLITE_DB = ROOT / "dart_sector.db"
 DUCK_DB = ROOT / "dart_sector.duckdb"
 OUT_MD = ROOT / "docs" / "ENGINE_PARITY.md"
 QUERIES = ["q10_universe_mapping_monitor", "q12_universe_sector_profile", "q13_universe_screen",
-           "q14_events_vs_financials", "q15_restructure_next_year", "q16_universe_filings_vs_price", "q17_event_window"]
+           "q14_events_vs_financials", "q15_restructure_next_year", "q16_universe_filings_vs_price", "q17_event_window", "q18_filing_amounts"]
 
 
 def build_duckdb() -> float:
@@ -48,7 +49,7 @@ def build_duckdb() -> float:
         con.execute(f"INSERT INTO {fname[:-4]} SELECT * FROM df")
         con.unregister("df")
     log_id = 0
-    for folder, table in ((RAW_LAYERED, "stg_fs_line"), (RAW_LAYERED_FULL, "stg_fs_full"), (RAW_LAYERED_FILINGS, "stg_filings_u"), (RAW_LAYERED_PRICES, "stg_prices_u")):
+    for folder, table in ((RAW_LAYERED, "stg_fs_line"), (RAW_LAYERED_FULL, "stg_fs_full"), (RAW_LAYERED_FILINGS, "stg_filings_u"), (RAW_LAYERED_PRICES, "stg_prices_u"), (RAW_LAYERED_DOCS, "stg_filing_details")):
         for path in sorted(folder.glob("*.csv")) if folder.exists() else []:
             df = pd.read_csv(path, dtype=str, keep_default_na=False)
             df["source_file"] = path.name
@@ -116,6 +117,7 @@ def main() -> None:
         ("v_qc_company_coverage", "SELECT * FROM v_qc_company_coverage"),
         ("filings_universe", "SELECT * FROM filings_universe"),
         ("prices_universe", "SELECT * FROM prices_universe"),
+        ("filing_details", "SELECT * FROM filing_details"),
         ("v_universe_index", "SELECT * FROM v_universe_index"),
     ] + [(q, (SQL / f"{q}.sql").read_text(encoding="utf-8")) for q in QUERIES]
     rows = [compare(n, s) for n, s in checks]
@@ -129,7 +131,7 @@ def main() -> None:
     con.executescript((SQL / "03_schema_layered.sql").read_text(encoding="utf-8"))
     for fname in ("dim_company.csv", "dim_account_map.csv", "dim_period.csv", "dim_industry.csv"):
         pd.read_csv(DIM / fname, dtype=str, keep_default_na=False).replace({"": None}).to_sql(fname[:-4], con, if_exists="append", index=False)
-    for folder, table in ((RAW_LAYERED, "stg_fs_line"), (RAW_LAYERED_FULL, "stg_fs_full"), (RAW_LAYERED_FILINGS, "stg_filings_u"), (RAW_LAYERED_PRICES, "stg_prices_u")):
+    for folder, table in ((RAW_LAYERED, "stg_fs_line"), (RAW_LAYERED_FULL, "stg_fs_full"), (RAW_LAYERED_FILINGS, "stg_filings_u"), (RAW_LAYERED_PRICES, "stg_prices_u"), (RAW_LAYERED_DOCS, "stg_filing_details")):
         for path in sorted(folder.glob("*.csv")) if folder.exists() else []:
             df = pd.read_csv(path, dtype=str, keep_default_na=False)
             df["source_file"] = path.name
