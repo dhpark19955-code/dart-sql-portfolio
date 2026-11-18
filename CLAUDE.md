@@ -37,6 +37,12 @@ SQL을 고쳤으면 `run_queries.py` 를 다시 돌려 `results/` 를 갱신하�
   - 4분기 = financials_annual(최신) - 1~3분기. 처음엔 그 해 보고서 당초값으로 했다가 2024 기준 혼합 문제로 현재 방식으로 변경. 카카오게임즈 2023Q4 음수는 연중 재분류라 남김(q8 WARN)
   - 2023 분기·3Q24 카카오게임즈 결측은 `dart_key_accounts_q_supplement.csv`. fy2023·fy2024 사업보고서도 적재(2021·2022 연간값이 최신 정정으로 바뀔 수 있음 - q1~q7 결과는 불변 확인)
   - 줄바꿈: `.gitattributes` 로 LF 정규화 (run_queries 가 Windows 에서 CRLF 로 써서 전체 diff 가 나던 문제)
+- [x] 대형화 2단계 - KOSPI 시총 상위 200사 계층 파이프라인: `sql/03_schema_layered.sql`, `sql/04_load_layered.sql`, `data/dim/*.csv`, `data/raw/layered/*.csv`, q10~q13. build_db.py 가 `data/dim/dim_company.csv` 가 있으면 자동 실행
+  - 유니버스 = FinanceDataReader KOSPI 시총 상위 200 보통주(pykrx 지수구성은 KRX 로그인 필요). corp_code 는 dart_search_corp 종목코드 조회, 업종·결산월은 dart_company_info (helper 에이전트 400회)
+  - 주요계정 API 함정: 금융업은 2023 사업보고서부터만, 은행 단독·인프라펀드·에코프로머티는 전 연도 없음. 금융 계정 14개는 1차 빌드 미매핑(4.7%)으로 드러나 매핑 추가
+  - 핵심 규칙 변경: "한 회사·연도 = 한 보고서(최신)". 계정별 최신 보고서를 고르면 자산·부채(올해 보고서)와 자본(작년 보고서)이 섞여 항등식 실패(금호석유화학·한화 2021)
+  - 남은 플래그: SK텔레콤 2022 항등식 -30백만원(API 원값), 한화비전·달바글로벌·한전기술 일부 연도 매출 NULL
+  - 결측 보충은 안 함(2단계는 모니터링까지). 3단계 과제: 전체 재무제표 API 로 대체 수집
 
 남은 작업
 1. **GitHub 배포 (새 public 레포 `dart-sql-portfolio`)**: 사용자가 2026-11-18 "새 레포로 push" 승인. 대상 계정 = `dhpark19955-code`(사용자 지정).
@@ -58,7 +64,8 @@ powershell -ExecutionPolicy Bypass -File .\publish_github.ps1
    - 스크립트 자체는 `.gitignore` 로 레포에서 제외. `.git` 은 이미 init·스테이징만 된 상태(커밋 없음)
    - 2026-11-18 가짜 gh 로 사본에서 시험 완료(정상 경로·origin 기존 경로·키 원문 차단). 실제 GitHub 생성·push 는 미검증
 
-2. (선택) PostgreSQL 호환성: q7 의 `PARTITION BY yr, range_pct IS NULL`, `SUBSTR` 등은 Postgres 에서도 동작하지만 실제 검증은 안 함.
+2. **3단계** (기획): 전체 재무제표 API 로 금융업·결측 회사 대체 수집, DuckDB 이전, 증분 적재. `docs/LARGE_SCALE_PLAN.md` 6절
+3. (선택) PostgreSQL 호환성: q7 의 `PARTITION BY yr, range_pct IS NULL`, `SUBSTR` 등은 Postgres 에서도 동작하지만 실제 검증은 안 함.
 
 ## 파일 역할 요약
 
@@ -70,4 +77,7 @@ powershell -ExecutionPolicy Bypass -File .\publish_github.ps1
 | `scripts/run_queries.py` | `sql/q*.sql` 실행 → `results/*.md` |
 | `sql/01_schema.sql` | 테이블 정의 |
 | `sql/02_load_clean.sql` | UNPIVOT·형변환·PIVOT·중복제거·단위통일 |
-| `sql/q1~q9` | 분석 쿼리 (q8 분기 품질, q9 분기 추세) |
+| `sql/03_schema_layered.sql` | 2단계 계층 테이블(dim_*, stg_fs_line, fs_fact, fin_annual_wide, etl_log) |
+| `sql/04_load_layered.sql` | 2단계 staging → core → mart + 품질점검 뷰 |
+| `data/dim/*.csv` | 사람이 관리하는 보조테이블 원본 (매핑 추가는 여기에 행 추가 → 재빌드) |
+| `sql/q1~q13` | 분석 쿼리 (q8 분기 품질, q9 분기 추세, q10 유니버스 모니터, q11 교차검증, q12 업종, q13 스크리닝) |

@@ -37,8 +37,10 @@
 | [Q7](results/q7_filings_vs_price_range.md) | 공시가 많은 해에 주가도 크게 움직였나 | 주요사항보고서 71건 중 59건이 자기주식 관련. 건수와 변동폭은 뚜렷한 관계 없음 |
 | [Q8](results/q8_quarter_quality.md) | 분기 데이터는 믿을 만한가 | 156행 중 누적→3개월 왕복·분기합=연간·항등식 전부 통과. 이상치 1건(카카오게임즈 2023Q4, 연중 중단영업 재분류) |
 | [Q9](results/q9_quarter_trend.md) | 분기로 보면 2025년 실적 방향은 | 크래프톤 1~3분기 영업이익률 37~52% vs 4분기(도출) 0.3%, NAVER는 4개 분기 모두 YoY +10% 이상 |
-| [Q8](results/q8_quarter_quality.md) | 분기 데이터는 믿을 만한가 | 156행 중 누적→3개월 왕복·분기합=연간·항등식 전부 통과. 이상치 1건(카카오게임즈 2023Q4, 연중 중단영업 재분류) |
-| [Q9](results/q9_quarter_trend.md) | 분기로 보면 2025년 실적 방향은 | 크래프톤 1~3분기 영업이익률 37~52% vs 4분기(도출) 0.3%, NAVER는 4개 분기 모두 YoY +10% 이상 |
+| [Q10](results/q10_universe_mapping_monitor.md) | 200사로 넓히면 매핑·커버리지는 어디서 새나 | 1차 빌드 미매핑 4.7%(전부 금융업 계정 14개) → 매핑 추가 후 0%. 주요계정 API는 금융업을 2023년부터만 제공 |
+| [Q11](results/q11_layered_vs_phase1_crosscheck.md) | 새 파이프라인이 1단계와 같은 숫자를 내나 | 겹치는 13사 x 연도 전부 일치. 다른 건 1단계가 보충 CSV로 채운 카카오·크래프톤 2020 매출뿐 |
+| [Q12](results/q12_universe_sector_profile.md) | 업종별로 수익성·성장은 어디에 | 매출 합계 1위 전자부품·반도체(610조, 영업이익률 15.9%), 매출 CAGR 1위 조선·항공 +26.3%, 의약품 가중 영업이익률 22.2% |
+| [Q13](results/q13_universe_screen.md) | 성장·수익성·건전성을 다 갖춘 곳은 | 4개 조건 전부 통과 11사: 에이피알, 삼양식품, HD현대마린엔진, 삼성바이오로직스, 이수페타시스, 셀트리온, 강원랜드, F&F, NAVER, 크래프톤, 한미반도체 |
 
 ## SQL로 한 것
 
@@ -51,6 +53,11 @@
 | 여러 테이블 결합 | 재무·주가·주식수·공시 4계열을 `companies` 를 통해 JOIN. 결측 행은 `LEFT JOIN` 으로 유지 | q2, q5, q7 |
 | 윈도우 함수 | `LAG`, `RANK`, `ROW_NUMBER`, `FIRST_VALUE`/`LAST_VALUE`, `SUM() OVER (PARTITION BY)` | q1~q5, q7, q9 |
 | 분기 데이터 정제 | 분기보고서 당기·전기 열을 UNPIVOT 해 "최신 보고서 우선"으로 1건, 3개월값 → 연초누적(`SUM() OVER ... ROWS UNBOUNDED PRECEDING`), 4분기 = 연간 - 1~3분기 도출, 누적→3개월 왕복 검증(`LAG`) | `sql/02_load_clean.sql`, q8 |
+| 계층 분리 (2단계) | raw CSV → `stg_fs_line`(문자열 그대로) → `fs_fact`(회사 x 연도 x 계정, 원 단위, 표준계정) → `fin_annual_wide`(와이드, 백만원). 값을 바꾸는 규칙은 core 한 곳에만 | `sql/03_schema_layered.sql`, `sql/04_load_layered.sql` |
+| 사람이 관리하는 규칙의 테이블화 | 계정명 변형 → 표준 계정(`dim_account_map` 47행), 보고서코드 → 분기(`dim_period`), KSIC 코드 → 업종(`dim_industry`), 회사 마스터(`dim_company`). 코드 수정 없이 CSV 행 추가로 대응 | `data/dim/*.csv` |
+| 한 연도 = 한 보고서 | 회사·연도마다 최신 접수번호 보고서 하나를 골라 모든 계정을 거기서만 가져옴. 계정별로 따로 고르면 자산·부채와 자본의 출처가 섞여 항등식이 깨짐(1차 빌드에서 2사 발견) | `sql/04_load_layered.sql` |
+| 품질점검 뷰 | 미매핑 계정 집계(`v_qc_unmapped_accounts`), 회사별 커버리지·결측·항등식(`v_qc_company_coverage`) → q10 이 UNION ALL 로 한 표에 | `sql/04_load_layered.sql`, q10 |
+| 파이프라인 교차검증 | 1단계 mart 와 2단계 mart 의 교집합을 JOIN, 계정별 차이를 UNPIVOT 해 0 이 아닌 행만 | q11 |
 | 품질 점검 | 회계 항등식, 결측 탐지(`LEFT JOIN ... IS NULL`), 거래일 수 비교를 `UNION ALL` 로 한 표에 | q6 |
 
 ```mermaid
@@ -58,6 +65,17 @@ flowchart LR
     A["원천 CSV 8개<br/>API 응답 그대로"] --> B["staging 테이블<br/>stg_*"]
     B -->|"02_load_clean.sql"| C["분석 테이블 5개"]
     C -->|"q1~q7"| D["results/*.md"]
+```
+
+2단계는 같은 흐름을 4계층으로 나누고 보조테이블을 붙인 것입니다.
+
+```mermaid
+flowchart LR
+    R["raw<br/>data/raw/layered (10 파일)"] --> S["staging<br/>stg_fs_line 13,223행"]
+    S -->|"UNPIVOT · 형변환 · 한 연도 = 한 보고서 · 매핑"| C["core<br/>fs_fact 18,059행"]
+    C -->|"PIVOT · 백만원 · 품질 플래그"| M["mart<br/>fin_annual_wide 1,277행"]
+    D["dim_company 200 · dim_account_map 47<br/>dim_industry 73 · dim_period 4"] --> C
+    Q["v_qc_* 뷰 → q10"] -.-> C
 ```
 
 정제 단계별 예시와 ERD는 [`docs/SQL_STRUCTURE.md`](docs/SQL_STRUCTURE.md)에 있습니다.
@@ -73,6 +91,19 @@ flowchart LR
 | `prices_daily` | yfinance (KOSPI .KS / KOSDAQ .KQ) | 8,760 (12사 x 730일) | stock_code + trade_date |
 | `shares_outstanding` | KRX 상장종목 목록 + 수기 보충 1건 | 13 | stock_code |
 | `filings` | DART 공시목록 API, 주요사항보고서 2023~2025 | 86 (정정 15건 포함) | rcept_no |
+
+2단계 (KOSPI 시가총액 상위 200사, 보통주, 2026-11-18 기준, 스팩·리츠 제외)
+
+| 계층 | 테이블 | 원천 | 행 수 | 키 |
+|---|---|---|---|---|
+| dim | `dim_company` | FinanceDataReader KOSPI 목록(시총) + DART 기업개황(업종코드·결산월) | 200 | corp_code (PK), stock_code (UQ) |
+| dim | `dim_account_map` | 직접 작성. 1차 빌드 미매핑 목록을 보고 금융업 계정 14개 추가 | 47 | map_id |
+| dim | `dim_industry` | KSIC 10차 중분류 2자리 → 대분류·중분류명·금융 여부 | 73 | ksic2 |
+| dim | `dim_period` | 보고서코드 → 분기, 당기·전기 열의 뜻 | 4 | reprt_code |
+| staging | `stg_fs_line` | DART 다중회사 주요계정, 사업보고서 2021~2025 x 100사 배치 2개 | 13,223 | (없음, 원문) |
+| core | `fs_fact` | staging 을 UNPIVOT·형변환·매핑 | 18,059 | corp_code + fiscal_year + fs_div + sj_div + account_nm |
+| mart | `fin_annual_wide` | core 를 PIVOT, 백만원, 품질 플래그 | 1,277 | corp_code + fiscal_year + fs_div |
+| log | `etl_log` | raw 파일 단위 적재 기록 | 10 | log_id |
 
 ```
 companies 1 ──< financials_annual     (corp_code)
@@ -149,6 +180,34 @@ companies 1 ──< filings               (corp_code)
 - 사실: 카카오게임즈는 4개 분기 모두 영업적자, 매출 YoY -21.7~-31.1%
 - 추론: 연간 1위(q1)인 크래프톤도 분기로 쪼개면 변동이 크다 - 분기 데이터가 연간 순위를 보완하는 이유
 
+### Q10. 200사 유니버스 매핑·커버리지 모니터 - [q10](results/q10_universe_mapping_monitor.md)
+기법: 품질점검 뷰 2개 위에 UNION ALL, 조건부 집계, HAVING
+- 사실: 1차 빌드 fs_fact 18,140행 중 미매핑 849행(4.7%), 전부 금융업 계정 14개(예수부채·보험계약부채·순이자손익 등). `dim_account_map` 에 14행 추가 후 0% ([1차 빌드 결과 보존](docs/qc_snapshots/q10_first_run_before_mapping_20261118.md))
+- 사실: 매출액이 없는 회사 17사는 전부 금융업(은행·보험·증권) - 매출액 대신 순이자손익·보험수익 체계. `is_financial` 로 EXPECTED 처리
+- 사실: 주요계정 API 는 금융업을 2023년 사업보고서부터만 제공. 카카오뱅크·케이뱅크·맥쿼리인프라·KB발해인프라·에코프로머티는 전 연도 없음
+- 사실: 항등식 실패는 SK텔레콤 2022 1건(차이 -30백만원, 같은 보고서 안의 값) - API 원값의 반올림으로 보이며 수정하지 않음
+- 추론: 대형화에서 가장 큰 결측 원인은 파싱이 아니라 "API 가 그 회사를 안 준다"는 것. 전체 재무제표 API 로 대체 수집하는 경로가 3단계 과제
+
+### Q11. 두 파이프라인 교차검증 - [q11](results/q11_layered_vs_phase1_crosscheck.md)
+기법: 1단계 mart(financials_annual) 와 2단계 mart(fin_annual_wide) 를 JOIN, 계정 4개를 UNPIVOT, NULL 안전 비교(IS NOT)
+- 사실: 유니버스에 모두 있는 9사 x FY2020~2025 x 4계정에서 다른 값 0건
+- 사실: 차이로 남는 건 카카오·크래프톤 2020 매출(1단계는 전체 재무제표 보충값, 2단계는 주요계정 API 에 없어 NULL)과 유니버스 밖 4사(SOOP·가비아·케이아이엔엑스·헥토이노베이션·카카오게임즈·더존비즈온)
+- 추론: 같은 원천에 같은 규칙을 적용하면 두 구현이 같은 숫자를 내야 한다 - 이 검증이 통과해야 2단계 파이프라인으로 1단계를 대체할 수 있다
+
+### Q12. 업종별 수익성·성장 프로필 - [q12](results/q12_universe_sector_profile.md)
+기법: dim_company x dim_industry x fin_annual_wide JOIN, 업종별 중앙값(ROW_NUMBER + COUNT OVER), POWER 로 4년 CAGR, HAVING 으로 3사 이상
+- 사실: FY2025 매출 합계 1위 전자부품·반도체(14사, 610조, 가중 영업이익률 15.9%, 중앙값 5.0%) - SK하이닉스 한 곳이 가중치를 끌어올림
+- 사실: 매출 CAGR(21→25) 1위 조선·항공 +26.3%(7사, 영업이익률 11.1%), 2위 포털·플랫폼 +18.9%, 3위 의약품 +13.7%(가중 영업이익률 22.2%)
+- 사실: 금융업 49사(은행·지주 35, 보험 8, 증권 6)는 매출 개념이 달라 수익성 지표에서 제외
+- 추론: 가중 평균과 중앙값의 차이가 큰 업종(반도체·의약품)은 1~2개사가 업종을 대표하므로 업종 평균을 벤치마크로 쓰면 안 된다
+
+### Q13. 성장 + 수익성 + 건전성 스크리닝 - [q13](results/q13_universe_screen.md)
+기법: 조건부 집계로 4개 연도를 한 행에, 복합 조건 플래그 합산, RANK 전체·업종 내
+- 조건: 매출 CAGR(21→25) ≥ 10%, FY2025 영업이익률 ≥ 10%, 부채비율 ≤ 100%, 2023~2025 3년 연속 영업흑자 (금융업 제외)
+- 사실: 4개 전부 통과 11사. CAGR 상위 에이피알 +55.8%(영업이익률 23.9%), 삼양식품 +38.3%, HD현대마린엔진 +30.8%, 삼성바이오로직스 +30.6%(영업이익률 45.4%)
+- 사실: 2021 매출이 없는 신규 상장사(시프트업·달바글로벌 등)는 CAGR 이 NULL 이라 빠진다 - 누락이 아니라 조건 미충족
+- 추론: 1차 필터일 뿐이며, 다음 단계는 q5 처럼 주가와 붙여 괴리를 보는 것
+
 </details>
 
 ## 실행 방법
@@ -175,6 +234,11 @@ DB만 열어 보려면 빌드 없이 `sqlite3 dart_sector.db` 로 바로 쿼리�
 - 2023년 분기보고서 주요계정 API 에도 매출액 행이 없는 회사(카카오·크래프톤·카카오게임즈·헥토이노베이션)가 있어 전체 재무제표 API 로 보충했습니다(`dart_key_accounts_q_supplement.csv`). 카카오게임즈 3Q24 영업이익·순이익도 같은 방식이며, 순이익은 계속영업 + 중단영업 합계입니다.
 - 섹터 분류는 작성자 기준입니다(삼성SDS를 IT인프라/SaaS에 넣은 것은 논쟁 여지가 있음).
 - 13개사 표본이라 통계적 결론은 내지 않습니다. 결과는 추가 조사 대상을 고르는 1차 필터 용도입니다.
+- 2단계 유니버스는 KOSPI200 공식 구성종목이 아니라 FinanceDataReader 의 KOSPI 시가총액 상위 200 보통주(2026-11-18)입니다. pykrx 의 지수 구성종목 조회는 KRX 로그인이 필요해 쓰지 않았습니다.
+- 주요계정 API(fnlttMultiAcnt)는 금융업을 2023년 사업보고서부터만 주고, 은행 단독 법인·인프라펀드·일부 신규 상장사는 아예 주지 않습니다. 2단계에서는 결측으로 두고 q10 에 플래그만 남겼습니다.
+- 업종은 DART 기업개황 업종코드(KSIC) 앞 2자리입니다. 지주회사는 '전문서비스(71)' 로, 화장품은 '화학(20)' 으로 묶이는 등 사업 실질과 다를 수 있습니다.
+- 2단계 항등식 실패 1건(SK텔레콤 2022, -30백만원)은 같은 보고서 안의 API 값이라 그대로 두었습니다.
+- corp_code 200건과 기업개황 200건은 보조 에이전트가 API 응답을 옮겨 적은 것입니다. corp_code 는 주요계정 응답의 stock_code 와 200건 전부 대조했고, 업종코드·결산월은 대조하지 않았습니다.
 - PostgreSQL 실행은 검증하지 않았습니다.
 
 ## 폴더 구조
@@ -187,10 +251,17 @@ dart-sql-portfolio/
 │   ├── PLAN.md               # 기획 문서
 │   ├── SQL_STRUCTURE.md      # SQL 구현 구조 도식
 │   ├── LARGE_SCALE_PLAN.md   # 대형 데이터 SQL 전처리 확장 기획
-│   └── LARGE_SCALE_DESIGN.xlsx  # 계층별 분류 기준·보조테이블·계정 매핑·품질점검 표
+│   ├── LARGE_SCALE_DESIGN.xlsx  # 계층별 분류 기준·보조테이블·계정 매핑·품질점검 표
+│   └── qc_snapshots/         # 품질점검 1차 결과 보존 (매핑 추가 전)
 ├── requirements.txt / .env.example / .gitignore
 ├── dart_sector.db            # 빌드 결과 (재생성 가능)
+├── data/dim/                 # 사람이 관리하는 보조테이블 (2단계)
+│   ├── dim_company.csv               # 200사 마스터 (업종코드·결산월·시총)
+│   ├── dim_account_map.csv           # 계정명 변형 → 표준 계정, 부호, 유형
+│   ├── dim_industry.csv              # KSIC 2자리 → 대분류·중분류·금융 여부
+│   └── dim_period.csv                # 보고서코드 → 분기
 ├── data/raw/
+│   ├── layered/                      # 2단계 원천: 사업보고서 2021~2025 x 배치 2 = 10 파일
 │   ├── companies.csv                       # 회사 마스터 (섹터 분류)
 │   ├── dart_key_accounts_fy2025.csv        # DART 주요계정 원형 FY2023~2025
 │   ├── dart_key_accounts_fy2022.csv        # DART 주요계정 원형 FY2020~2022
@@ -210,7 +281,9 @@ dart-sql-portfolio/
 ├── sql/
 │   ├── 01_schema.sql         # staging / 분석용 테이블
 │   ├── 02_load_clean.sql     # 정제 (UNPIVOT·형변환·중복제거·PIVOT)
-│   └── q1 ~ q9 *.sql         # 분석 쿼리 (질문·기법 주석 포함)
+│   ├── 03_schema_layered.sql # 2단계 계층 테이블·보조테이블
+│   ├── 04_load_layered.sql   # 2단계 staging → core → mart, 품질점검 뷰
+│   └── q1 ~ q13 *.sql        # 분석 쿼리 (질문·기법 주석 포함)
 └── results/                  # 쿼리별 결과 표 + SQL
 ```
 
@@ -221,3 +294,4 @@ dart-sql-portfolio/
 - 주가: Yahoo Finance (yfinance)
 - 주식수: KRX 상장종목 목록 (FinanceDataReader), 2026-11-18 기준
 - 더존비즈온 상장폐지(2026-07-15): EQT파트너스 공개매수 후 주식교환, 언론 보도 기준
+- 200사 유니버스: FinanceDataReader KOSPI 종목 목록(시가총액), 2026-11-18. 업종코드·결산월: DART 기업개황 API. 업종 분류명: KSIC 10차

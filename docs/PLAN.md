@@ -59,6 +59,10 @@ companies (13)  1─<  financials_annual (회사x연도 1행, 백만원)
 | q7 | 주요사항보고서 건수 vs 주가 변동폭 | CROSS JOIN 뼈대 + LEFT JOIN, CASE 조건부 집계 |
 | q8 | 분기 데이터 품질 점검 | SUM OVER 누적 ↔ LAG 차분 왕복, UNION ALL |
 | q9 | 2025년 분기 추세 | LAG(…,4) 전년 동기, LAG(…,1) QoQ |
+| q10 | 200사 매핑·커버리지 모니터 | 품질점검 뷰 + UNION ALL |
+| q11 | 1단계 vs 2단계 교차검증 | JOIN + UNPIVOT, IS NOT |
+| q12 | 업종별 수익성·성장 | 3테이블 JOIN, 윈도우 중앙값, POWER |
+| q13 | 성장·수익성·건전성 스크리닝 | 조건부 집계, 복합 플래그, RANK PARTITION |
 
 ## 5. 단계별 계획
 
@@ -80,6 +84,7 @@ companies (13)  1─<  financials_annual (회사x연도 1행, 백만원)
 
 ### Phase 3 - 선택
 - [x] 분기 데이터로 확장 (2026-11-18): 당기·전기 열 UNPIVOT, 최신 보고서 우선, 4분기 도출, 누적↔3개월 왕복 검증. 상세는 LARGE_SCALE_PLAN.md 6절 1단계
+- [x] 2단계 (2026-11-18): KOSPI 시총 상위 200사 x 사업보고서 2021~2025 를 raw/staging/core/mart 4계층 + dim 4개로 적재, 미매핑 모니터(q10)·교차검증(q11)·업종 프로필(q12)·스크리닝(q13)
 - [ ] 간단한 HTML 대시보드(results 표 렌더링)를 GitHub Pages에
 
 ## 6. 알려진 한계 (README에도 명시)

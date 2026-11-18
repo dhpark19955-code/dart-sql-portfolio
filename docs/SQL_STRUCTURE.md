@@ -106,3 +106,68 @@ erDiagram
 | q7 | 주요사항보고서 건수 vs 주가 변동폭 | filings, prices, companies | `CROSS JOIN` 뼈대 + `LEFT JOIN`, `CASE` 조건부 집계, `RANK` |
 | q8 | 분기 데이터 품질 점검 | financials_quarter, financials_annual, companies | `SUM() OVER (ROWS UNBOUNDED PRECEDING)` 누적, `LAG` 차분 왕복, `UNION ALL` |
 | q9 | 2025년 분기 추세 | financials_quarter, financials_annual, companies | `LAG(…, 4)` 전년 동기, `LAG(…, 1)` QoQ |
+| q10 | 200사 매핑·커버리지 모니터 | v_qc_unmapped_accounts, v_qc_company_coverage | 뷰 위 `UNION ALL`, 조건부 집계 |
+| q11 | 1단계 vs 2단계 교차검증 | financials_annual, fin_annual_wide, companies | `JOIN` + `UNION ALL` UNPIVOT, `IS NOT` |
+| q12 | 업종별 수익성·성장 | dim_company, dim_industry, fin_annual_wide | 윈도우 중앙값(`ROW_NUMBER`+`COUNT OVER`), `POWER` CAGR, `HAVING` |
+| q13 | 성장·수익성·건전성 스크리닝 | dim_company, dim_industry, fin_annual_wide | 조건부 집계, 복합 플래그, `RANK() OVER (PARTITION BY)` |
+
+## 5. 2단계 계층 파이프라인 (KOSPI 시총 상위 200사)
+
+```mermaid
+flowchart LR
+    R["raw<br/>data/raw/layered/*.csv<br/>사업보고서 2021~2025 x 배치 2"] -->|build_db.py| S["stg_fs_line<br/>문자열 그대로, source_file"]
+    S -->|"04_load_layered.sql<br/>UNPIVOT(당기·전기·전전기) → 형변환 → 한 연도 = 한 보고서 → 매핑"| C["fs_fact<br/>회사 x 연도 x 계정, 원 단위<br/>std_account NULL = 미매핑"]
+    C -->|"PIVOT(priority) → 백만원 → 품질 플래그"| M["fin_annual_wide<br/>회사 x 연도 1행"]
+    DC["dim_company"] --> C
+    DA["dim_account_map"] --> C
+    DI["dim_industry"] --> Q12["q12 · q13"]
+    M --> Q12
+    C -.-> V["v_qc_unmapped_accounts<br/>v_qc_company_coverage"] -.-> Q10["q10"]
+    M --> Q11["q11 ↔ financials_annual"]
+```
+
+```mermaid
+erDiagram
+  dim_company ||--o{ fs_fact : corp_code
+  dim_company ||--o{ fin_annual_wide : corp_code
+  dim_industry ||--o{ dim_company : "ksic2 = substr(induty_code,1,2)"
+  dim_account_map ||--o{ fs_fact : "account_nm (+ sj_div)"
+  dim_company {
+    text corp_code PK
+    text stock_code UK
+    text induty_code
+    int settle_month
+    int is_financial
+  }
+  dim_account_map {
+    int map_id PK
+    text sj_div
+    text account_nm
+    text std_account
+    int sign
+    text value_type
+    int priority
+  }
+  fs_fact {
+    text corp_code PK
+    int fiscal_year PK
+    text fs_div PK
+    text sj_div PK
+    text account_nm PK
+    text std_account
+    int amount_krw
+    int period_offset
+    text rcept_no
+  }
+  fin_annual_wide {
+    text corp_code PK
+    int fiscal_year PK
+    text fs_div PK
+    int revenue
+    int op_income
+    int n_unmapped
+    int qc_identity_ok
+  }
+```
+
+1단계와 다른 점 세 가지. (1) 계정 매핑이 SQL 의 `CASE WHEN` 이 아니라 `dim_account_map` 테이블이라, 새 계정명은 CSV 에 행을 추가하고 재빌드하면 된다. (2) core(`fs_fact`)는 세로(long) 형태로 모든 계정을 보존하고 미매핑도 `std_account NULL` 로 남겨, 무엇이 빠졌는지 뷰로 센다. (3) 한 회사·연도의 숫자는 보고서 하나에서만 가져온다. 계정마다 최신 보고서를 따로 고르면 자산·부채와 자본의 출처가 달라져 항등식이 깨진다(1차 빌드에서 2사 발견).
