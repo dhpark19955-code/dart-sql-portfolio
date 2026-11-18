@@ -112,6 +112,8 @@ erDiagram
 | q13 | 성장·수익성·건전성 스크리닝 | dim_company, dim_industry, v_fin_annual | 조건부 집계, 복합 플래그, `RANK() OVER (PARTITION BY)` |
 | q14 | 공시 이벤트 x 재무 | filings_universe, v_fin_annual, dim_industry | 유형 플래그, 지표 세로 펼침 + 창 함수 중앙값, `UNION ALL` |
 | q15 | 공시 → 이듬해 실적 | filings_universe, v_fin_annual | `LEAD`, 뼈대 `LEFT JOIN`, 그룹 중앙값 |
+| q16 | 공시 x 연간 주가 (q7 확장) | prices_universe, v_universe_index, filings_universe | `FIRST_VALUE`/`LAST_VALUE`, 초과수익, 그룹 중앙값 |
+| q17 | 공시일 이벤트 윈도우 | filings_universe, prices_universe, v_universe_index | 상관 서브쿼리 `MAX(trade_seq)`, `trade_seq + k` JOIN, 중앙값·양수 비율 |
 
 ## 5. 2단계 계층 파이프라인 (KOSPI 시총 상위 200사)
 
@@ -181,4 +183,5 @@ erDiagram
 - **`v_fin_annual` 뷰**: 회사·연도에 연결(CFS)이 있으면 연결, 없으면 별도(OFS). q10 이후 분석 쿼리는 전부 이 뷰를 읽는다.
 - **`incr_scope`**: build_db.py 가 매 실행마다 채우는 회사 목록. 04 SQL 의 core·mart·filings 단계가 전부 이 표와 JOIN 하므로, 전체 빌드와 증분 적재가 같은 SQL 을 쓴다.
 - **공시 유형 분류**: `filings_universe.event_type` 은 04 의 CASE 로 제목 키워드를 분류한다. 규칙이 바뀌면 재빌드로 재분류된다.
+- **주가 축**: `prices_universe` 는 종목별 거래일 순번 `trade_seq` 를 가진다. 이벤트 윈도우(q17)는 달력이 아니라 이 순번으로 +k 거래일을 센다. `v_universe_index` 는 등가중 지수 뷰로, `EXP(SUM(LN(1 + r)) OVER (...))` 누적곱이다.
 - **엔진 이식성**: `scripts/run_duckdb.py` 가 03·04·q10~q15 를 DuckDB 로 실행해 SQLite 와 대조한다. 피한 문법은 `docs/ENGINE_PARITY.md`.

@@ -162,6 +162,45 @@ FROM stg_filings_u f
 JOIN dim_company d ON d.corp_code = f.corp_code
 JOIN incr_scope  s ON s.corp_code = f.corp_code;
 
+-- ---------- core: prices_universe ----------
+-- 같은 날짜가 두 번 오면 거래량 큰 행, 종가 없거나 0 이면 제외. 유니버스 종목만
+INSERT INTO prices_universe (stock_code, trade_date, trade_seq, close, adj_close, volume)
+SELECT stock_code, trade_date,
+       ROW_NUMBER() OVER (PARTITION BY stock_code ORDER BY trade_date) AS trade_seq,
+       close, adj_close, volume
+FROM (
+    SELECT p.stock_code, p.trade_date,
+           CAST(p.close AS DOUBLE)     AS close,
+           CAST(p.adj_close AS DOUBLE) AS adj_close,
+           CAST(p.volume AS BIGINT)    AS volume,
+           ROW_NUMBER() OVER (PARTITION BY p.stock_code, p.trade_date ORDER BY CAST(p.volume AS BIGINT) DESC) AS rn
+    FROM stg_prices_u p
+    JOIN dim_company d ON d.stock_code = p.stock_code
+    JOIN incr_scope  s ON s.corp_code = d.corp_code
+    WHERE TRIM(COALESCE(p.close, '')) <> '' AND CAST(p.close AS DOUBLE) > 0
+) x
+WHERE rn = 1;
+
+-- 유니버스 등가중 지수: 종목별 일간 수정종가 수익률의 날짜 평균을 누적 (시작 1.0)
+-- 이벤트 윈도우의 "시장 대비" 기준. SQLite 3.35+ / DuckDB 공통 (LN·EXP)
+DROP VIEW IF EXISTS v_universe_index;
+CREATE VIEW v_universe_index AS
+WITH r AS (
+    SELECT stock_code, trade_date,
+           adj_close / LAG(adj_close) OVER (PARTITION BY stock_code ORDER BY trade_date) - 1 AS ret
+    FROM prices_universe
+    WHERE adj_close > 0
+),
+d AS (
+    SELECT trade_date, AVG(ret) AS mret, COUNT(*) AS n_stocks
+    FROM r
+    WHERE ret IS NOT NULL
+    GROUP BY trade_date
+)
+SELECT trade_date, n_stocks,
+       EXP(SUM(LN(1 + mret)) OVER (ORDER BY trade_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)) AS idx
+FROM d;
+
 -- ---------- 분석용 뷰: 회사·연도당 1행, 연결(CFS)이 있으면 연결, 없으면 별도(OFS) ----------
 DROP VIEW IF EXISTS v_fin_annual;
 CREATE VIEW v_fin_annual AS

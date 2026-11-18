@@ -127,6 +127,17 @@ CREATE TABLE stg_filings_u (
     source_file TEXT
 );
 
+-- (d) yfinance 일별 주가 (4단계 주가 축). 문자열 그대로
+DROP TABLE IF EXISTS stg_prices_u;
+CREATE TABLE stg_prices_u (
+    stock_code  TEXT,
+    trade_date  TEXT,
+    close       TEXT,
+    adj_close   TEXT,
+    volume      TEXT,
+    source_file TEXT
+);
+
 -- ---------- core (회사 x 연도 x 계정 1행, 원 단위 정수, 표준 계정 매핑) ----------
 DROP TABLE IF EXISTS fs_fact;
 CREATE TABLE fs_fact (
@@ -159,6 +170,19 @@ CREATE TABLE filings_universe (
     event_type    TEXT NOT NULL                  -- treasury / financing / restructure / other
 );
 CREATE INDEX idx_filings_u_corp ON filings_universe (corp_code, fiscal_year);
+
+-- 종목 x 거래일 1행 (core). trade_seq = 종목별 거래일 순번 (이벤트 윈도우 계산용: +1·+5·+20 거래일)
+DROP TABLE IF EXISTS prices_universe;
+CREATE TABLE prices_universe (
+    stock_code  TEXT NOT NULL,
+    trade_date  TEXT NOT NULL,                   -- 'YYYY-MM-DD'
+    trade_seq   INTEGER NOT NULL,
+    close       DOUBLE NOT NULL,
+    adj_close   DOUBLE,
+    volume      BIGINT,
+    PRIMARY KEY (stock_code, trade_date)
+);
+CREATE INDEX idx_prices_u_seq ON prices_universe (stock_code, trade_seq);
 
 -- ---------- mart (회사 x 연도 x 기준 1행 와이드, 백만원) ----------
 DROP TABLE IF EXISTS fin_annual_wide;

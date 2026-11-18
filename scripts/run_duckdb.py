@@ -28,11 +28,12 @@ DIM = ROOT / "data" / "dim"
 RAW_LAYERED = ROOT / "data" / "raw" / "layered"
 RAW_LAYERED_FULL = ROOT / "data" / "raw" / "layered_full"
 RAW_LAYERED_FILINGS = ROOT / "data" / "raw" / "layered_filings"
+RAW_LAYERED_PRICES = ROOT / "data" / "raw" / "layered_prices"
 SQLITE_DB = ROOT / "dart_sector.db"
 DUCK_DB = ROOT / "dart_sector.duckdb"
 OUT_MD = ROOT / "docs" / "ENGINE_PARITY.md"
 QUERIES = ["q10_universe_mapping_monitor", "q12_universe_sector_profile", "q13_universe_screen",
-           "q14_events_vs_financials", "q15_restructure_next_year"]
+           "q14_events_vs_financials", "q15_restructure_next_year", "q16_universe_filings_vs_price", "q17_event_window"]
 
 
 def build_duckdb() -> float:
@@ -47,7 +48,7 @@ def build_duckdb() -> float:
         con.execute(f"INSERT INTO {fname[:-4]} SELECT * FROM df")
         con.unregister("df")
     log_id = 0
-    for folder, table in ((RAW_LAYERED, "stg_fs_line"), (RAW_LAYERED_FULL, "stg_fs_full"), (RAW_LAYERED_FILINGS, "stg_filings_u")):
+    for folder, table in ((RAW_LAYERED, "stg_fs_line"), (RAW_LAYERED_FULL, "stg_fs_full"), (RAW_LAYERED_FILINGS, "stg_filings_u"), (RAW_LAYERED_PRICES, "stg_prices_u")):
         for path in sorted(folder.glob("*.csv")) if folder.exists() else []:
             df = pd.read_csv(path, dtype=str, keep_default_na=False)
             df["source_file"] = path.name
@@ -114,6 +115,8 @@ def main() -> None:
         ("v_fin_annual", "SELECT * FROM v_fin_annual"),
         ("v_qc_company_coverage", "SELECT * FROM v_qc_company_coverage"),
         ("filings_universe", "SELECT * FROM filings_universe"),
+        ("prices_universe", "SELECT * FROM prices_universe"),
+        ("v_universe_index", "SELECT * FROM v_universe_index"),
     ] + [(q, (SQL / f"{q}.sql").read_text(encoding="utf-8")) for q in QUERIES]
     rows = [compare(n, s) for n, s in checks]
 
@@ -126,7 +129,7 @@ def main() -> None:
     con.executescript((SQL / "03_schema_layered.sql").read_text(encoding="utf-8"))
     for fname in ("dim_company.csv", "dim_account_map.csv", "dim_period.csv", "dim_industry.csv"):
         pd.read_csv(DIM / fname, dtype=str, keep_default_na=False).replace({"": None}).to_sql(fname[:-4], con, if_exists="append", index=False)
-    for folder, table in ((RAW_LAYERED, "stg_fs_line"), (RAW_LAYERED_FULL, "stg_fs_full"), (RAW_LAYERED_FILINGS, "stg_filings_u")):
+    for folder, table in ((RAW_LAYERED, "stg_fs_line"), (RAW_LAYERED_FULL, "stg_fs_full"), (RAW_LAYERED_FILINGS, "stg_filings_u"), (RAW_LAYERED_PRICES, "stg_prices_u")):
         for path in sorted(folder.glob("*.csv")) if folder.exists() else []:
             df = pd.read_csv(path, dtype=str, keep_default_na=False)
             df["source_file"] = path.name
@@ -143,7 +146,7 @@ def main() -> None:
              "| 대상 | SQLite 행 | DuckDB 행 | diff_rows |", "|---|---:|---:|---:|"]
     lines += [f"| {n} | {a:,} | {b:,} | {d} |" for n, a, b, d in rows]
     lines += ["", "## 빌드 시간 (dim + staging 적재 + 04 실행, 같은 PC)", "",
-              f"- SQLite {sqlite_sec:.1f}초 / DuckDB {duck_sec:.1f}초 (CSV 14개, staging 약 14,500행 기준. pandas 적재 시간 포함)", "",
+              f"- SQLite {sqlite_sec:.1f}초 / DuckDB {duck_sec:.1f}초 (CSV 15개, staging 약 154,000행 기준. pandas 적재 시간 포함)", "",
               "## 엔진 차이로 SQL 에서 피한 것", "",
               "- 정수 나눗셈: SQLite 는 `x / 1000000` 이 정수, DuckDB 는 실수 → `CAST(TRUNC(x / 1000000.0) AS BIGINT)`",
               "- 불리언 합산: SQLite 는 `SUM(cond)` 가 되지만 DuckDB 는 안 됨 → `SUM(CASE WHEN cond THEN 1 ELSE 0 END)`",

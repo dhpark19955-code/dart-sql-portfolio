@@ -92,7 +92,10 @@ def _load_raw_file(conn: sqlite3.Connection, path: Path, table: str, endpoint: s
          _dt.datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds"),
          f"{path.parent.name}/{path.name}"))
     print(f"  {path.name:52s} -> {table:12s} {len(df):>7,} rows")
-    return set(df["corp_code"].unique())
+    if "corp_code" in df.columns:
+        return set(df["corp_code"].unique())
+    dim = pd.read_csv(DIM / "dim_company.csv", dtype=str)           # 주가 파일은 종목코드만 있다
+    return set(dim.loc[dim["stock_code"].isin(df["stock_code"].unique()), "corp_code"])
 
 
 def build_layered(conn: sqlite3.Connection, incremental: bool = False) -> None:
@@ -106,7 +109,8 @@ def build_layered(conn: sqlite3.Connection, incremental: bool = False) -> None:
         return
     raw_sets = [(RAW_LAYERED, "stg_fs_line", "fnlttMultiAcnt"),
                 (RAW_LAYERED_FULL, "stg_fs_full", "fnlttSinglAcntAll"),
-                (RAW / "layered_filings", "stg_filings_u", "list.json")]
+                (RAW / "layered_filings", "stg_filings_u", "list.json"),
+                (RAW / "layered_prices", "stg_prices_u", "yfinance")]
     if incremental:
         print("4) layered: incremental")
         loaded = {r[0] for r in conn.execute("SELECT raw_ref FROM etl_log")}
@@ -126,6 +130,7 @@ def build_layered(conn: sqlite3.Connection, incremental: bool = False) -> None:
         conn.execute("DELETE FROM fs_fact WHERE corp_code IN (SELECT corp_code FROM incr_scope)")
         conn.execute("DELETE FROM fin_annual_wide WHERE corp_code IN (SELECT corp_code FROM incr_scope)")
         conn.execute("DELETE FROM filings_universe WHERE corp_code IN (SELECT corp_code FROM incr_scope)")
+        conn.execute("DELETE FROM prices_universe WHERE stock_code IN (SELECT stock_code FROM dim_company WHERE corp_code IN (SELECT corp_code FROM incr_scope))")
         print(f"   recompute scope: {len(scope)} companies")
     else:
         print("4) layered schema")
@@ -139,7 +144,7 @@ def build_layered(conn: sqlite3.Connection, incremental: bool = False) -> None:
     print("6) layered core / mart")
     run_sql_file(conn, SQL / "04_load_layered.sql")
     conn.commit()
-    for t in ("dim_company", "dim_account_map", "stg_fs_line", "stg_fs_full", "fs_fact", "fin_annual_wide", "filings_universe", "etl_log"):
+    for t in ("dim_company", "dim_account_map", "stg_fs_line", "stg_fs_full", "fs_fact", "fin_annual_wide", "filings_universe", "prices_universe", "etl_log"):
         n = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
         print(f"   {t:20s} {n:>7,} rows")
 

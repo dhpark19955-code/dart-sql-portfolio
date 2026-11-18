@@ -6,15 +6,15 @@
 | 항목 | 내용 |
 |---|---|
 | 대상 | 1단계: 국내 상장 13개사(인터넷플랫폼 4 · IT인프라/SaaS 5 · 게임 4) 심층 · 2단계: KOSPI 시가총액 상위 200사 유니버스 |
-| 데이터 | 13사: 연결 재무제표 연간 FY2020~2025 · 분기 2023~2025, 일별 주가 2023~2025, 주요사항보고서 2023~2025 · 200사: 사업보고서 2021~2025 전체 주요계정(전기·전전기 열 포함 FY2019~2025) |
+| 데이터 | 13사: 연결 재무제표 연간 FY2020~2025 · 분기 2023~2025, 일별 주가 2023~2025, 주요사항보고서 2023~2025 · 200사: 사업보고서 2021~2025 전체 주요계정(전기·전전기 열 포함 FY2019~2025), 일별 주가 2023~2025(198사), 주요사항보고서 2023~2025 |
 | 엔진 | SQLite (3.35 이상, 3.50.4에서 실행). 2~4단계 계층 파이프라인은 DuckDB 2.0 에서도 같은 SQL 로 빌드해 결과 대조([`docs/ENGINE_PARITY.md`](docs/ENGINE_PARITY.md)) |
-| 규모 | 1단계 테이블 6개 + 계층 테이블 11개(dim 4 · staging 3 · core 2 · mart 1 · etl_log), SQL 17개 파일(약 1,500줄), 분석 쿼리 15개. SQLite 와 DuckDB 에서 같은 SQL 실행 확인 |
+| 규모 | 1단계 테이블 6개 + 계층 테이블 13개(dim 4 · staging 4 · core 3 · mart 1 · etl_log), SQL 19개 파일(약 1,700줄), 분석 쿼리 17개. SQLite 와 DuckDB 에서 같은 SQL 실행 확인 |
 
 ## 결과물
 
 | 결과물 | 위치 | 내용 |
 |---|---|---|
-| 분석 결과 15건 | [`results/`](results/) | 질문별 md 1개: 질문·기법 주석 + 결과 표 + 실행한 SQL 전문 |
+| 분석 결과 17건 | [`results/`](results/) | 질문별 md 1개: 질문·기법 주석 + 결과 표 + 실행한 SQL 전문 |
 | 계층 파이프라인(2~4단계) | [`sql/03_schema_layered.sql`](sql/03_schema_layered.sql), [`sql/04_load_layered.sql`](sql/04_load_layered.sql), [`data/dim/`](data/dim/) | raw → staging → core → mart 4계층, 보조테이블 4개, 품질점검 뷰, 전체 재무제표 API 대체 경로(account_id 매핑), 공시 이벤트 분류 |
 | 증분 적재 | `python scripts/build_db.py --incremental` | 새 raw 파일만 적재하고 그 파일의 회사만 재계산. 전체 빌드와 체크섬 동일 확인 |
 | 엔진 대조 | [`scripts/run_duckdb.py`](scripts/run_duckdb.py) → [`docs/ENGINE_PARITY.md`](docs/ENGINE_PARITY.md) | 같은 SQL 을 DuckDB 로 실행해 core·mart·쿼리 결과를 SQLite 와 행 단위 비교 |
@@ -45,6 +45,8 @@
 | [Q13](results/q13_universe_screen.md) | 성장·수익성·건전성을 다 갖춘 곳은 | 4개 조건 전부 통과 11사: 에이피알, 삼양식품, HD현대마린엔진, 삼성바이오로직스, 이수페타시스, 셀트리온, 강원랜드, F&F, NAVER, 크래프톤, 한미반도체 |
 | [Q14](results/q14_events_vs_financials.md) | 공시를 낸 회사와 안 낸 회사는 재무가 다른가 | 자기주식 공시 회사 66사의 부채비율 중앙값 77.4% vs 미공시 85사 113.1%. 자금조달 공시 회사도 78.9% vs 101.5% - 레버리지가 높은 곳이 조달 공시를 내는 건 아니다 |
 | [Q15](results/q15_restructure_next_year.md) | 구조변경 공시 다음 해 매출은 | 구조변경 공시 7건의 다음 해 매출 증가율 중앙값 +4.1%, 자금조달만 16건 +9.8%, 무공시 278건 +5.7%. 표본이 작아 방향만 |
+| [Q16](results/q16_universe_filings_vs_price.md) | (q7 확장) 공시를 낸 해의 주가는 | 자기주식 공시 회사·연도 187건 연간 수익률 중앙값 +26.3% vs 미공시 394건 +17.2%, 변동폭 74.3% vs 67.9%. 자금조달도 +26.7% vs +19.0% |
+| [Q17](results/q17_event_window.md) | 공시일 전후 주가는 | 549건 이벤트 윈도우: 자기주식 455건 +1일 초과수익 중앙값 -0.1%(양수 48%), 구조변경 17건 +1.0%(양수 71%), 자금조달 48건 +5일 -0.6%. 평균적으로는 거의 반응 없음 |
 
 ## SQL로 한 것
 
@@ -67,6 +69,8 @@
 | 증분 적재 | `etl_log.raw_ref` 로 적재된 파일을 기억하고, 새 파일에 등장한 회사만 `incr_scope` 에 넣어 core·mart 를 그 회사분만 지우고 재계산. 전체 빌드와 체크섬 일치 | `scripts/build_db.py --incremental` |
 | 엔진 이식성 | 정수 나눗셈·불리언 합산·문자열 연결·NULL 비교·32비트 정수 등 엔진이 갈리는 7가지를 피해 쓰고, DuckDB 로 같은 SQL 을 실행해 행 단위 대조 | `scripts/run_duckdb.py` |
 | 공시 이벤트 분류 (4단계) | 주요사항보고서 제목을 CASE 로 자기주식·자금조달·구조변경·기타로 분류, 정정공시 플래그. 재무 mart 와 JOIN 해 그룹별 중앙값 비교(q14), LEAD 로 이듬해 실적(q15) | `sql/04_load_layered.sql`, q14, q15 |
+| 등가중 지수 (SQL) | 종목별 일간 수익률(`LAG`)의 날짜 평균을 `EXP(SUM(LN(1 + r)) OVER (...))` 로 누적한 유니버스 지수 뷰. 이벤트 윈도우의 "시장 대비" 기준 | `v_universe_index` |
+| 이벤트 윈도우 | 공시일 직전 거래일을 상관 서브쿼리(`MAX(trade_seq) WHERE trade_date < 공시일`)로 찾고 `trade_seq + k` 로 JOIN 해 +1·+5·+20 거래일 종가를 같은 행에. 달력이 아니라 거래일 순번으로 세는 것이 핵심 | q17 |
 | 품질 점검 | 회계 항등식, 결측 탐지(`LEFT JOIN ... IS NULL`), 거래일 수 비교를 `UNION ALL` 로 한 표에 | q6 |
 
 ```mermaid
@@ -115,6 +119,8 @@ flowchart LR
 | staging | `stg_fs_full` | DART 전체 재무제표 API(별도), 주요계정 API 가 안 주는 3사 x 사업보고서 2025 | 486 | (없음, 원문) |
 | staging | `stg_filings_u` | DART 공시목록 API, 200사 주요사항보고서 2023~2025 | 778 | (없음, 원문) |
 | core | `filings_universe` | 공시 1건 1행 + 유형 분류(자기주식 510 · 자금조달 158 · 구조변경 88 · 기타 22) | 778 | rcept_no |
+| staging | `stg_prices_u` | yfinance 일별 주가, 198사 x 2023~2025 (케이뱅크·KB발해인프라는 상장이 늦어 없음) | 139,982 | (없음, 원문) |
+| core | `prices_universe` | 종목 x 거래일 1행, `trade_seq` 거래일 순번 | 139,982 | stock_code + trade_date |
 | log | `etl_log` | raw 파일 단위 적재 기록 (증분 적재의 기준) | 14 | log_id |
 
 ```
@@ -233,6 +239,20 @@ companies 1 ──< filings               (corp_code)
 - 사실: 셀트리온 2023 합병 → 2024 매출 +63.4%(영업이익 -24.5%), 에코프로머티 2023 타법인 취득 → 2024 매출 -68.5%
 - 추론: 7건으로는 방향도 말하기 어렵다. 공시 본문(합병 비율·대상 규모)을 붙여야 분석이 되며, 그것이 공시 원문 파싱 과제
 
+### Q16. (q7 확장) 공시를 낸 해의 주가 수익률·변동폭 - [q16](results/q16_universe_filings_vs_price.md)
+기법: 회사 x 연도 뼈대 + 공시 집계 LEFT JOIN, FIRST_VALUE/LAST_VALUE 연간 수익률, 등가중 지수 대비 초과수익, 유형별 그룹 중앙값
+- 사실: 2023~2025 회사·연도 581건. 자기주식 공시가 있던 187건의 연간 수익률 중앙값 +26.3%, 변동폭 74.3% / 없던 394건 +17.2%, 67.9%
+- 사실: 자금조달 공시 37건 +26.7% vs 544건 +19.0%, 구조변경 16건 +22.4%(변동폭 103.1%) vs 565건 +19.4%
+- 사실: 지수 대비 초과수익 중앙값은 모든 그룹이 음수(-9~-18%) - 등가중 지수는 수익률 평균이라 소수 급등주가 끌어올리고, 중앙값 종목은 그보다 낮다
+- 추론: 13사 q7 과 달리 200사에서는 공시가 있던 해의 수익률·변동폭이 모두 높다. 다만 공시가 주가를 움직인 것인지, 주가가 오른 해에 공시(특히 자사주 처분)가 늘어난 것인지는 이 표로는 구분되지 않는다 - 그래서 q17
+
+### Q17. 공시일 전후 이벤트 윈도우 - [q17](results/q17_event_window.md)
+기법: 공시일 직전 거래일 순번을 상관 서브쿼리로, `trade_seq + 1/5/20` JOIN, 지수는 날짜 JOIN, 유형 x 윈도우 중앙값·양수 비율, 상세 상위 10건 UNION ALL
+- 사실: 정정 제외 549건 중 주가가 있는 537건. 자기주식 455건의 +1일 초과수익 중앙값 -0.1%(양수 47.9%), +20일 -0.8%(46.8%)
+- 사실: 구조변경 17건은 +1일 +1.0%(양수 70.6%)이나 +20일 -1.1%. 자금조달 48건 +5일 -0.6%, +20일 -2.1%(양수 41.3%)
+- 사실: +5일 초과수익 절댓값 상위는 DB하이텍 자사주 처분(2025-02, +34.4%), 아모레퍼시픽 자사주 처분(2024-08, -32.9%) - 실적 발표와 겹친 날이 많다
+- 추론: 주요사항보고서는 평균적으로 당일 주가를 거의 움직이지 않는다. q16 의 "공시 있던 해 수익률 높음" 은 공시 효과가 아니라 주가가 오른 해에 자사주 처분·조달 공시가 늘어나는 역방향으로 읽는 편이 맞다. 베타 미조정·통계 검정 없음
+
 </details>
 
 ## 실행 방법
@@ -247,6 +267,12 @@ python scripts/run_queries.py      # sql/q*.sql 실행 -> results/*.md
 
 ```bash
 python scripts/build_db.py --incremental
+```
+
+200사 주가를 다시 받으려면 (네트워크 필요, 약 1분):
+
+```bash
+python scripts/fetch_prices_universe.py
 ```
 
 DuckDB 로 같은 SQL 을 실행해 SQLite 결과와 대조하려면 (`pip install duckdb` 필요):
@@ -274,7 +300,7 @@ DB만 열어 보려면 빌드 없이 `sqlite3 dart_sector.db` 로 바로 쿼리�
 - 2단계 유니버스는 KOSPI200 공식 구성종목이 아니라 FinanceDataReader 의 KOSPI 시가총액 상위 200 보통주(2026-11-18)입니다. pykrx 의 지수 구성종목 조회는 KRX 로그인이 필요해 쓰지 않았습니다.
 - 주요계정 API(fnlttMultiAcnt)는 금융업을 2023년 사업보고서부터만 주고, 은행 단독 법인·인프라펀드·일부 신규 상장사는 아예 주지 않습니다. 3단계에서 전체 재무제표 API(fnlttSinglAcntAll)로 대체 수집해 카카오뱅크·케이뱅크·에코프로머티는 별도 기준으로 2023~2025 를 채웠습니다. 맥쿼리인프라·KB발해인프라(펀드)는 두 API 모두 없고, 금융업 2021~2022 도 두 API 모두 없습니다(KB금융·삼성생명으로 확인).
 - 공시 이벤트 분류는 제목 키워드 기준이라 거칠고, 공시 본문(금액·대상)은 읽지 않았습니다. 200사 공시 목록 778건은 보조 에이전트가 옮겨 적은 것으로, 1단계에서 받아 둔 6개사 56건과 전부 일치하는 것만 확인했습니다.
-- 유니버스에 주가가 없어 q7(공시 vs 주가 변동폭)의 200사 확장은 하지 않았습니다.
+- 200사 주가는 yfinance 에서 받은 것이라 KRX 공식 종가와 다를 수 있고, 수정종가 기준 수익률입니다. 등가중 지수는 유니버스 198사의 일간 수익률 단순평균 누적이라 KOSPI 지수와 다르며, 이벤트 윈도우는 베타를 조정하지 않았습니다.
 - 업종은 DART 기업개황 업종코드(KSIC) 앞 2자리입니다. 지주회사는 '전문서비스(71)' 로, 화장품은 '화학(20)' 으로 묶이는 등 사업 실질과 다를 수 있습니다.
 - 2단계 항등식 실패 1건(SK텔레콤 2022, -30백만원)은 같은 보고서 안의 API 값이라 그대로 두었습니다.
 - corp_code 200건과 기업개황 200건은 보조 에이전트가 API 응답을 옮겨 적은 것입니다. corp_code 는 주요계정 응답의 stock_code 와 200건 전부 대조했고, 업종코드·결산월은 대조하지 않았습니다.
@@ -304,6 +330,7 @@ dart-sql-portfolio/
 │   ├── layered/                      # 2단계 원천: 사업보고서 2021~2025 x 배치 2 = 10 파일
 │   ├── layered_full/                 # 3단계: 전체 재무제표 API (주요계정 API 가 안 주는 3사, 별도)
 │   ├── layered_filings/              # 4단계: 200사 주요사항보고서 목록 2023~2025
+│   ├── layered_prices/               # 4단계: 198사 일별 주가 2023~2025 (yfinance)
 │   ├── companies.csv                       # 회사 마스터 (섹터 분류)
 │   ├── dart_key_accounts_fy2025.csv        # DART 주요계정 원형 FY2023~2025
 │   ├── dart_key_accounts_fy2022.csv        # DART 주요계정 원형 FY2020~2022
@@ -317,7 +344,8 @@ dart-sql-portfolio/
 │   └── shares_manual.csv                   # 주식수 수기 보충 (근거 포함)
 ├── scripts/
 │   ├── fetch_dart.py         # OpenDART API (DART_API_KEY 필요)
-│   ├── fetch_prices.py       # yfinance + KRX 목록
+│   ├── fetch_prices.py       # yfinance + KRX 목록 (13사)
+│   ├── fetch_prices_universe.py  # yfinance 200사
 │   ├── build_db.py           # CSV -> SQLite (--incremental 지원)
 │   ├── run_duckdb.py         # 같은 SQL 을 DuckDB 로 빌드해 SQLite 와 대조
 │   └── run_queries.py        # q*.sql -> results/*.md
@@ -326,7 +354,7 @@ dart-sql-portfolio/
 │   ├── 02_load_clean.sql     # 정제 (UNPIVOT·형변환·중복제거·PIVOT)
 │   ├── 03_schema_layered.sql # 2단계 계층 테이블·보조테이블
 │   ├── 04_load_layered.sql   # 2단계 staging → core → mart, 품질점검 뷰
-│   └── q1 ~ q15 *.sql        # 분석 쿼리 (질문·기법 주석 포함)
+│   └── q1 ~ q17 *.sql        # 분석 쿼리 (질문·기법 주석 포함)
 └── results/                  # 쿼리별 결과 표 + SQL
 ```
 
@@ -339,3 +367,4 @@ dart-sql-portfolio/
 - 더존비즈온 상장폐지(2026-07-15): EQT파트너스 공개매수 후 주식교환, 언론 보도 기준
 - 200사 유니버스: FinanceDataReader KOSPI 종목 목록(시가총액), 2026-11-18. 업종코드·결산월: DART 기업개황 API. 업종 분류명: KSIC 10차
 - 200사 공시 목록: DART 공시검색 API (list.json, pblntf_ty=B), 2023-01-01 ~ 2025-12-31. 대체 재무: DART 단일회사 전체 재무제표 API (fnlttSinglAcntAll, 별도)
+- 200사 주가: Yahoo Finance (yfinance), 2023-01-01 ~ 2025-12-31, 수집 2026-11-18

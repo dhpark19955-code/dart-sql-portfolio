@@ -48,7 +48,9 @@ SQL을 고쳤으면 `run_queries.py` 를 다시 돌려 `results/` 를 갱신하�
   - 두 엔진 공통 SQL 을 위해 피한 것 7가지는 ENGINE_PARITY.md. SQLite 가 허용하는 '집계 밖 열'·'별칭 뒤 *'·'상관 서브쿼리 ORDER BY 외부 참조' 는 DuckDB/SQLite 중 한쪽에서 깨짐
   - 증분 검증법: raw 파일 하나 빼고 전체 빌드 → 넣고 --incremental → 체크섬(행 수·합계) 비교
 - [x] 4단계 - 공시 이벤트 결합 (11-18): 200사 주요사항보고서 778건(`data/raw/layered_filings`, helper 전사·6사 56건 대조), `filings_universe` 유형 분류, q14·q15
-  - 주가는 200사에 없어 q7 확장은 안 함. 공시 본문 파싱(금액·대상)은 미구현
+  - 공시 본문 파싱(금액·대상)은 미구현
+- [x] q7 확장 (11-18): `scripts/fetch_prices_universe.py`(yfinance 198사 139,982행) → `stg_prices_u` → `prices_universe`(trade_seq) + `v_universe_index`(등가중, EXP/LN 누적) → q16 연간 공시 x 주가, q17 이벤트 윈도우(+1·+5·+20 거래일 초과수익)
+  - UNION 결과에 ORDER BY 식을 쓰려면 바깥 SELECT 로 감쌀 것(SQLite). v_universe_index 는 뷰라 참조마다 재계산 - 행마다 상관 서브쿼리로 뷰를 부르면 매우 느림(점검 쿼리에서 10분 초과). 대량 참조면 테이블화
 
 남은 작업
 1. **GitHub 배포 (새 public 레포 `dart-sql-portfolio`)**: 사용자가 2026-11-18 "새 레포로 push" 승인. 대상 계정 = `dhpark19955-code`(사용자 지정).
@@ -70,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File .\publish_github.ps1
    - 스크립트 자체는 `.gitignore` 로 레포에서 제외. `.git` 은 이미 init·스테이징만 된 상태(커밋 없음)
    - 2026-11-18 가짜 gh 로 사본에서 시험 완료(정상 경로·origin 기존 경로·키 원문 차단). 실제 GitHub 생성·push 는 미검증
 
-2. (선택) 공시 본문 파싱(합병 비율·조달 금액)으로 q15 를 금액 기준으로, 200사 주가 수집으로 q7 확장
+2. (선택) 공시 본문 파싱(합병 비율·조달 금액)으로 q15·q17 을 금액·규모 기준으로. 이벤트 윈도우에 베타 조정·실적발표일 제외
 3. (선택) PostgreSQL 호환성: q7 의 `PARTITION BY yr, range_pct IS NULL`, `SUBSTR` 등은 Postgres 에서도 동작하지만 실제 검증은 안 함.
 
 ## 파일 역할 요약
@@ -87,4 +89,5 @@ powershell -ExecutionPolicy Bypass -File .\publish_github.ps1
 | `sql/04_load_layered.sql` | 2단계 staging → core → mart + 품질점검 뷰 |
 | `data/dim/*.csv` | 사람이 관리하는 보조테이블 원본 (매핑 추가는 여기에 행 추가 → 재빌드) |
 | `scripts/run_duckdb.py` | 같은 03/04/q10~q15 를 DuckDB 로 실행해 SQLite 와 대조 → docs/ENGINE_PARITY.md |
-| `sql/q1~q15` | 분석 쿼리 (q8 분기 품질, q9 분기 추세, q10 유니버스 모니터, q11 교차검증, q12 업종, q13 스크리닝, q14 공시x재무, q15 공시→이듬해) |
+| `scripts/fetch_prices_universe.py` | yfinance 200사 일별 주가 → data/raw/layered_prices |
+| `sql/q1~q17` | 분석 쿼리 (q8 분기 품질, q9 분기 추세, q10 유니버스 모니터, q11 교차검증, q12 업종, q13 스크리닝, q14 공시x재무, q15 공시→이듬해, q16 공시x연간주가, q17 이벤트 윈도우) |
