@@ -33,6 +33,8 @@ flowchart LR
 | PIVOT | 계정(행) → 컬럼, 회사 x 연도 1행 | `MAX(CASE WHEN ...)`, `GROUP BY` |
 | 단위 | 원 → 백만원 | `/ 1000000` |
 
+분기(`financials_quarter`)는 같은 패턴에 두 가지가 더해진다. (a) 분기보고서의 당기 열(그 해 3개월)과 전기 열(전년 같은 분기 3개월, 최신 기준 재표시)을 둘 다 행으로 펼친 뒤 접수번호 최신 1건을 고른다 - 손익 계정만이며 재무상태표 전기 열은 전년 말 잔액이라 제외. (b) 4분기는 보고서가 없으므로 `financials_annual` - 1~3분기 합으로 도출하고 `is_derived = 1` 을 단다. 연초누적은 `SUM() OVER (... ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`.
+
 같은 파일에서 주가는 `ROW_NUMBER` 로 중복 거래일 제거, 주식수는 `NOT EXISTS` 로 KRX 목록에 없는 종목만 수기 값 보충, 공시는 `SUBSTR` 로 날짜 형식 통일과 정정공시 플래그(`LIKE '[%'`)를 붙인다.
 
 ## 3. 분석 테이블 관계
@@ -43,6 +45,7 @@ erDiagram
   companies ||--o{ prices_daily : stock_code
   companies ||--o| shares_outstanding : stock_code
   companies ||--o{ filings : corp_code
+  companies ||--o{ financials_quarter : corp_code
   companies {
     text corp_code PK
     text stock_code UK
@@ -71,6 +74,14 @@ erDiagram
     int shares
     text source
   }
+  financials_quarter {
+    text corp_code PK
+    int fiscal_year PK
+    int quarter PK
+    int revenue
+    int revenue_cum
+    int is_derived
+  }
   filings {
     text rcept_no PK
     text corp_code FK
@@ -93,3 +104,5 @@ erDiagram
 | q5 | 주가 수익률 vs 이익 변화 | prices, financials, companies | `FIRST_VALUE`/`LAST_VALUE`, `WINDOW` 절 |
 | q6 | 데이터 품질 점검 | financials, prices, companies | `UNION ALL` 점검 묶기, `LEFT JOIN ... IS NULL` |
 | q7 | 주요사항보고서 건수 vs 주가 변동폭 | filings, prices, companies | `CROSS JOIN` 뼈대 + `LEFT JOIN`, `CASE` 조건부 집계, `RANK` |
+| q8 | 분기 데이터 품질 점검 | financials_quarter, financials_annual, companies | `SUM() OVER (ROWS UNBOUNDED PRECEDING)` 누적, `LAG` 차분 왕복, `UNION ALL` |
+| q9 | 2025년 분기 추세 | financials_quarter, financials_annual, companies | `LAG(…, 4)` 전년 동기, `LAG(…, 1)` QoQ |

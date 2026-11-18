@@ -31,6 +31,12 @@ SQL을 고쳤으면 `run_queries.py` 를 다시 돌려 `results/` 를 갱신하�
 - [x] filings 테이블 + q7 (`filings.csv` 86건, 정정 15건은 `is_amendment=1`)
 - [x] 더존비즈온 주식수 보완 (`shares_manual.csv`, `shares_outstanding.source` 컬럼). q2 NULL 은 주가가 없어 유지
 - [x] README 3절 수치 재확인 (q3 기간 변경 반영, Q1 추론 문구 정정, Q7 추가)
+- [x] GitHub push (dhpark19955-code/dart-sql-portfolio)
+- [x] 대형화 1단계 - 분기 데이터: `financials_quarter` 156행(2023~2025), `stg_dart_key_accounts_q`, q8 품질점검·q9 분기추세, `docs/LARGE_SCALE_DESIGN.xlsx`
+  - 분기 주요계정 API 스냅샷의 thstrm = 3개월값(누적 열 없음). 전기 열(frmtrm)은 전년 동기 3개월 → 손익만 UNPIVOT 해 "최신 보고서 우선"(BS 전기 열은 전년 말 잔액이라 제외)
+  - 4분기 = financials_annual(최신) - 1~3분기. 처음엔 그 해 보고서 당초값으로 했다가 2024 기준 혼합 문제로 현재 방식으로 변경. 카카오게임즈 2023Q4 음수는 연중 재분류라 남김(q8 WARN)
+  - 2023 분기·3Q24 카카오게임즈 결측은 `dart_key_accounts_q_supplement.csv`. fy2023·fy2024 사업보고서도 적재(2021·2022 연간값이 최신 정정으로 바뀔 수 있음 - q1~q7 결과는 불변 확인)
+  - 줄바꿈: `.gitattributes` 로 LF 정규화 (run_queries 가 Windows 에서 CRLF 로 써서 전체 diff 가 나던 문제)
 
 남은 작업
 1. **GitHub 배포 (새 public 레포 `dart-sql-portfolio`)**: 사용자가 2026-11-18 "새 레포로 push" 승인. 대상 계정 = `dhpark19955-code`(사용자 지정).
@@ -64,4 +70,4 @@ powershell -ExecutionPolicy Bypass -File .\publish_github.ps1
 | `scripts/run_queries.py` | `sql/q*.sql` 실행 → `results/*.md` |
 | `sql/01_schema.sql` | 테이블 정의 |
 | `sql/02_load_clean.sql` | UNPIVOT·형변환·PIVOT·중복제거·단위통일 |
-| `sql/q1~q7` | 분석 쿼리 |
+| `sql/q1~q9` | 분석 쿼리 (q8 분기 품질, q9 분기 추세) |

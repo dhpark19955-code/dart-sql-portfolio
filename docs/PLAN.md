@@ -57,6 +57,8 @@ companies (13)  1─<  financials_annual (회사x연도 1행, 백만원)
 | q5 | 주가 수익률 vs 이익 변화 괴리 | FIRST/LAST_VALUE, WINDOW 절 |
 | q6 | 데이터 품질 점검 | UNION ALL, LEFT JOIN IS NULL |
 | q7 | 주요사항보고서 건수 vs 주가 변동폭 | CROSS JOIN 뼈대 + LEFT JOIN, CASE 조건부 집계 |
+| q8 | 분기 데이터 품질 점검 | SUM OVER 누적 ↔ LAG 차분 왕복, UNION ALL |
+| q9 | 2025년 분기 추세 | LAG(…,4) 전년 동기, LAG(…,1) QoQ |
 
 ## 5. 단계별 계획
 
@@ -77,7 +79,7 @@ companies (13)  1─<  financials_annual (회사x연도 1행, 백만원)
 - [ ] GitHub push (별도 레포 또는 claude-code-data-portfolio 하위 폴더)
 
 ### Phase 3 - 선택
-- [ ] 분기 데이터(누적→당기 변환)로 확장: 정제 난이도가 높아 SQL 역량 어필에 유리
+- [x] 분기 데이터로 확장 (2026-11-18): 당기·전기 열 UNPIVOT, 최신 보고서 우선, 4분기 도출, 누적↔3개월 왕복 검증. 상세는 LARGE_SCALE_PLAN.md 6절 1단계
 - [ ] 간단한 HTML 대시보드(results 표 렌더링)를 GitHub Pages에
 
 ## 6. 알려진 한계 (README에도 명시)
