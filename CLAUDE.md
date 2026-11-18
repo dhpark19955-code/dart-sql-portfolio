@@ -33,7 +33,9 @@ SQL을 고쳤으면 `run_queries.py` 를 다시 돌려 `results/` 를 갱신하�
 - [x] README 3절 수치 재확인 (q3 기간 변경 반영, Q1 추론 문구 정정, Q7 추가)
 
 남은 작업
-1. **GitHub 배포 (새 public 레포 `dart-sql-portfolio`)**: 사용자가 2026-11-18 "새 레포로 push" 승인. 이 PC 에 GitHub CLI 가 없어 보류 중.
+1. **GitHub 배포 (새 public 레포 `dart-sql-portfolio`)**: 사용자가 2026-11-18 "새 레포로 push" 승인. 대상 계정 = `dhpark19955-code`(사용자 지정).
+   2026-11-18 현재: 로컬 커밋 a1864db 완료(작성자 = 이 계정 noreply, 로컬 설정만), origin = `https://dhpark19955-code@github.com/dhpark19955-code/dart-sql-portfolio.git`. 남은 것은 사용자가 웹에서 빈 레포를 만든 뒤 `git push -u origin main` (Git Credential Manager 브라우저 로그인을 이 계정으로).
+   아래 gh 경로는 대안 (gh 로그인 계정 기준으로 동작하므로 반드시 dhpark19955-code 로 로그인).
    다음 세션 절차:
    - 사용자가 직접: `winget install --id GitHub.cli -e` → 새 터미널에서 `gh auth login` (브라우저 로그인은 사용자 몫, Claude 가 대신 하지 않는다)
    - 그다음 이 폴더에서:
