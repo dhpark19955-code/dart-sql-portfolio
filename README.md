@@ -19,6 +19,7 @@
 | SQL | [`sql/`](sql/) | 테이블 정의, 정제, 분석 쿼리 q1~q7 |
 | 구조 설명 | [`docs/SQL_STRUCTURE.md`](docs/SQL_STRUCTURE.md) | 파이프라인·정제 단계·ERD 도식, 쿼리별 기법 표 |
 | 원천 데이터 | [`data/raw/`](data/raw/) | API 응답 형태 그대로의 CSV 8개 (재현용) |
+| 확장 기획 | [`docs/LARGE_SCALE_PLAN.md`](docs/LARGE_SCALE_PLAN.md) | 전 상장사·분기 규모로 키울 때의 SQL 전처리 설계 (구현 전) |
 
 ## 핵심 결과
 
@@ -158,7 +159,8 @@ dart-sql-portfolio/
 ├── CLAUDE.md                 # Claude Code 작업 규칙·진행 상황
 ├── docs/
 │   ├── PLAN.md               # 기획 문서
-│   └── SQL_STRUCTURE.md      # SQL 구현 구조 도식
+│   ├── SQL_STRUCTURE.md      # SQL 구현 구조 도식
+│   └── LARGE_SCALE_PLAN.md   # 대형 데이터 SQL 전처리 확장 기획
 ├── requirements.txt / .env.example / .gitignore
 ├── dart_sector.db            # 빌드 결과 (재생성 가능)
 ├── data/raw/
