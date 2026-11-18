@@ -66,6 +66,43 @@ def load_csvs(conn: sqlite3.Connection) -> None:
         print(f"  {fname:32s} -> {table:24s} {len(df):>7,} rows")
 
 
+DIM = ROOT / "data" / "dim"
+RAW_LAYERED = RAW / "layered"
+
+
+def build_layered(conn: sqlite3.Connection) -> None:
+    """대형화 2단계: dim_* + stg_fs_line -> fs_fact -> fin_annual_wide (sql/03, sql/04)."""
+    if not (DIM / "dim_company.csv").exists():
+        print("4) layered: skip (data/dim/dim_company.csv not found)")
+        return
+    print("4) layered schema")
+    run_sql_file(conn, SQL / "03_schema_layered.sql")
+    print("5) layered dims + staging")
+    for fname in ("dim_company.csv", "dim_account_map.csv", "dim_period.csv", "dim_industry.csv"):
+        df = pd.read_csv(DIM / fname, dtype={"corp_code": str, "stock_code": str, "sj_div": str, "ksic2": str, "induty_code": str},
+                         keep_default_na=False)
+        df = df.replace({"": None})
+        df.to_sql(fname[:-4], conn, if_exists="append", index=False)
+        print(f"  {fname:32s} -> {fname[:-4]:24s} {len(df):>7,} rows")
+    import datetime as _dt
+    for path in sorted(RAW_LAYERED.glob("*.csv")):
+        df = pd.read_csv(path, dtype=str, keep_default_na=False)
+        df["source_file"] = path.name
+        df.to_sql("stg_fs_line", conn, if_exists="append", index=False)
+        conn.execute(
+            "INSERT INTO etl_log (endpoint, params, status, row_count, fetched_at, raw_ref) VALUES (?,?,?,?,?,?)",
+            ("fnlttMultiAcnt", path.stem, "000", len(df),
+             _dt.datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds"),
+             f"data/raw/layered/{path.name}"))
+        print(f"  {path.name:32s} -> stg_fs_line             {len(df):>7,} rows")
+    print("6) layered core / mart")
+    run_sql_file(conn, SQL / "04_load_layered.sql")
+    conn.commit()
+    for t in ("dim_company", "dim_account_map", "stg_fs_line", "fs_fact", "fin_annual_wide", "etl_log"):
+        n = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+        print(f"   {t:20s} {n:>7,} rows")
+
+
 def main() -> None:
     if DB.exists():
         DB.unlink()
@@ -81,6 +118,8 @@ def main() -> None:
     for t in ("companies", "financials_annual", "financials_quarter", "prices_daily", "shares_outstanding", "filings"):
         n = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
         print(f"   {t:20s} {n:>7,} rows")
+
+    build_layered(conn)
     conn.close()
     print(f"done -> {DB.name}")
 

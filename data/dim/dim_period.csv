@@ -1,0 +1,5 @@
+reprt_code,report_name,quarter,flow_thstrm_meaning,flow_frmtrm_meaning,balance_frmtrm_meaning,filing_month
+11013,1분기보고서,1,1분기 3개월,전년 1분기 3개월 (최신 기준),전년 말 잔액,5
+11012,반기보고서,2,2분기 3개월 (반기 누적 아님),전년 2분기 3개월,전년 말 잔액,8
+11014,3분기보고서,3,3분기 3개월,전년 3분기 3개월,전년 말 잔액,11
+11011,사업보고서,4,연간 12개월,전년 연간 (최신 기준 재표시),전년 말 잔액,3

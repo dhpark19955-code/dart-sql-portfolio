@@ -5,21 +5,22 @@
 
 | 항목 | 내용 |
 |---|---|
-| 대상 | 국내 상장 13개사 - 인터넷플랫폼 4 · IT인프라/SaaS 5 · 게임 4 |
-| 데이터 | 연결 재무제표 연간 FY2020~2025 · 분기 2023~2025, 일별 주가 2023~2025, 주요사항보고서 2023~2025 |
+| 대상 | 1단계: 국내 상장 13개사(인터넷플랫폼 4 · IT인프라/SaaS 5 · 게임 4) 심층 · 2단계: KOSPI 시가총액 상위 200사 유니버스 |
+| 데이터 | 13사: 연결 재무제표 연간 FY2020~2025 · 분기 2023~2025, 일별 주가 2023~2025, 주요사항보고서 2023~2025 · 200사: 사업보고서 2021~2025 전체 주요계정(전기·전전기 열 포함 FY2019~2025) |
 | 엔진 | SQLite (3.35 이상, 3.50.4에서 실행). 표준 SQL 위주, SQLite 전용 함수는 주석으로 표시 |
-| 규모 | 테이블 6개, SQL 11개 파일(약 800줄), 분석 쿼리 9개 |
+| 규모 | 1단계 테이블 6개 + 2단계 계층 테이블 8개(dim 4 · staging 1 · core 1 · mart 1 · etl_log), SQL 15개 파일(약 1,200줄), 분석 쿼리 13개 |
 
 ## 결과물
 
 | 결과물 | 위치 | 내용 |
 |---|---|---|
-| 분석 결과 9건 | [`results/`](results/) | 질문별 md 1개: 질문·기법 주석 + 결과 표 + 실행한 SQL 전문 |
+| 분석 결과 13건 | [`results/`](results/) | 질문별 md 1개: 질문·기법 주석 + 결과 표 + 실행한 SQL 전문 |
+| 계층 파이프라인(2단계) | [`sql/03_schema_layered.sql`](sql/03_schema_layered.sql), [`sql/04_load_layered.sql`](sql/04_load_layered.sql), [`data/dim/`](data/dim/) | raw → staging → core → mart 4계층, 사람이 관리하는 보조테이블 4개, 품질점검 뷰 2개 |
 | 분석 DB | `dart_sector.db` | 정제 완료된 SQLite 파일. 클론 후 바로 쿼리 가능 |
 | SQL | [`sql/`](sql/) | 테이블 정의, 정제, 분석 쿼리 q1~q7 |
 | 구조 설명 | [`docs/SQL_STRUCTURE.md`](docs/SQL_STRUCTURE.md) | 파이프라인·정제 단계·ERD 도식, 쿼리별 기법 표 |
 | 원천 데이터 | [`data/raw/`](data/raw/) | API 응답 형태 그대로의 CSV 8개 (재현용) |
-| 확장 기획 | [`docs/LARGE_SCALE_PLAN.md`](docs/LARGE_SCALE_PLAN.md), [`docs/LARGE_SCALE_DESIGN.xlsx`](docs/LARGE_SCALE_DESIGN.xlsx) | 전 상장사·분기 규모로 키울 때의 SQL 전처리 설계. 엑셀은 계층별 분류 기준·보조테이블 컬럼·계정 매핑 규칙 표 (1단계 분기 데이터는 구현 완료) |
+| 확장 기획 | [`docs/LARGE_SCALE_PLAN.md`](docs/LARGE_SCALE_PLAN.md), [`docs/LARGE_SCALE_DESIGN.xlsx`](docs/LARGE_SCALE_DESIGN.xlsx) | 전 상장사 규모로 키울 때의 SQL 전처리 설계. 엑셀은 계층별 분류 기준·보조테이블 컬럼·계정 매핑 규칙 표. 1단계(분기)·2단계(200사 계층 파이프라인) 구현 완료, 3~4단계는 기획 |
 
 ## 핵심 결과
 
