@@ -1,48 +1,69 @@
-map_id,sj_div,account_nm,std_account,sign,value_type,priority,note
-1,BS,유동자산,current_assets,1,balance,1,
-2,BS,비유동자산,noncurrent_assets,1,balance,1,
-3,BS,자산총계,total_assets,1,balance,1,항등식 점검 기준
-4,BS,유동부채,current_liab,1,balance,1,
-5,BS,비유동부채,noncurrent_liab,1,balance,1,
-6,BS,부채총계,total_liab,1,balance,1,
-7,BS,자본금,issued_capital,1,balance,1,상장폐지 종목 주식수 추정에 사용
-8,BS,이익잉여금,retained_earnings,1,balance,1,
-9,BS,자본총계,total_equity,1,balance,1,
-10,IS,매출액,revenue,1,flow,1,주요계정 API 기본 계정명
-11,IS,영업수익,revenue,1,flow,2,"카카오·크래프톤·카카오게임즈·헥토·금융업 등. 주요계정 API 는 이 행을 주지 않으므로 전체 재무제표 보충 시 매핑"
-12,IS,수익(매출액),revenue,1,flow,3,
-13,IS,영업이익,op_income,1,flow,1,
-14,IS,영업이익(손실),op_income,1,flow,2,
-15,IS,영업손실,op_income,1,flow,3,
-16,IS,법인세차감전 순이익,pretax_income,1,flow,1,
-17,IS,법인세비용차감전순이익(손실),pretax_income,1,flow,2,
-18,IS,당기순이익(손실),net_income,1,flow,1,주요계정 API 가 같은 행을 2번 줌 → 접수번호 같으면 첫 행
-19,IS,당기순이익,net_income,1,flow,2,
-20,IS,분기순이익(손실),net_income,1,flow,3,분기보고서 표기
-21,IS,총포괄손익,comprehensive_income,1,flow,1,
-22,IS,영업비용,op_expense,1,flow,1,
-23,IS,이자수익,interest_income,1,flow,1,금융업 주요 계정
-24,IS,이자비용,interest_expense,1,flow,1,
-25,IS,순영업수익,revenue,1,flow,4,"은행·증권: 매출액 대신. 매출 비교 시 성격이 다름을 플래그"
-26,IS,보험수익,revenue,1,flow,5,보험사 IFRS17
-27,IS,매출원가,cost_of_sales,1,flow,1,
-28,IS,매출총이익,gross_profit,1,flow,1,
-29,IS,판매비와관리비,sga,1,flow,1,
-30,CF,영업활동현금흐름,cf_operating,1,flow,1,부호 그대로 (abs 금지)
-31,CF,영업활동으로 인한 현금흐름,cf_operating,1,flow,2,
-32,CF,투자활동현금흐름,cf_investing,1,flow,1,
-33,CF,재무활동현금흐름,cf_financing,1,flow,1,
-34,BS,당기손익-공정가치측정금융자산,fvtpl_assets,1,balance,1,금융업 (1차 빌드 미매핑 25사)
-35,BS,기타포괄손익-공정가치측정금융자산,fvoci_assets,1,balance,1,금융업
-36,BS,상각후원가측정금융자산,amortised_cost_assets,1,balance,1,금융업 (대출채권 포함)
-37,BS,차입부채,borrowings,1,balance,1,금융업
-38,BS,예수부채,deposits,1,balance,1,은행
-39,BS,파생상품자산,derivative_assets,1,balance,1,금융업
-40,BS,파생상품부채,derivative_liab,1,balance,1,금융업
-41,BS,보험계약부채,insurance_contract_liab,1,balance,1,보험 IFRS17
-42,BS,보험계약자산,insurance_contract_assets,1,balance,1,보험 IFRS17
-43,BS,금융부채,financial_liab,1,balance,1,
-44,IS,순이자손익,net_interest_income,1,flow,1,은행·증권. 매출 대용 지표 후보
-45,IS,순수수료손익,net_fee_income,1,flow,1,은행·증권
-46,IS,금융상품관련순손익,net_financial_instrument_gain,1,flow,1,
-47,IS,파생상품관련손익,derivative_gain,1,flow,1,
+map_id,account_id,sj_div,account_nm,std_account,sign,value_type,priority,note
+1,,BS,유동자산,current_assets,1,balance,1,
+2,,BS,비유동자산,noncurrent_assets,1,balance,1,
+3,,BS,자산총계,total_assets,1,balance,1,항등식 점검 기준
+4,,BS,유동부채,current_liab,1,balance,1,
+5,,BS,비유동부채,noncurrent_liab,1,balance,1,
+6,,BS,부채총계,total_liab,1,balance,1,
+7,,BS,자본금,issued_capital,1,balance,1,상장폐지 종목 주식수 추정에 사용
+8,,BS,이익잉여금,retained_earnings,1,balance,1,
+9,,BS,자본총계,total_equity,1,balance,1,
+10,,IS,매출액,revenue,1,flow,1,주요계정 API 기본 계정명
+11,,IS,영업수익,revenue,1,flow,2,카카오·크래프톤·카카오게임즈·헥토·금융업 등. 주요계정 API 는 이 행을 주지 않으므로 전체 재무제표 보충 시 매핑
+12,,IS,수익(매출액),revenue,1,flow,3,
+13,,IS,영업이익,op_income,1,flow,1,
+14,,IS,영업이익(손실),op_income,1,flow,2,
+15,,IS,영업손실,op_income,1,flow,3,
+16,,IS,법인세차감전 순이익,pretax_income,1,flow,1,
+17,,IS,법인세비용차감전순이익(손실),pretax_income,1,flow,2,
+18,,IS,당기순이익(손실),net_income,1,flow,1,주요계정 API 가 같은 행을 2번 줌 → 접수번호 같으면 첫 행
+19,,IS,당기순이익,net_income,1,flow,2,
+20,,IS,분기순이익(손실),net_income,1,flow,3,분기보고서 표기
+21,,IS,총포괄손익,comprehensive_income,1,flow,1,
+22,,IS,영업비용,op_expense,1,flow,1,
+23,,IS,이자수익,interest_income,1,flow,1,금융업 주요 계정
+24,,IS,이자비용,interest_expense,1,flow,1,
+25,,IS,순영업수익,revenue,1,flow,4,은행·증권: 매출액 대신. 매출 비교 시 성격이 다름을 플래그
+26,,IS,보험수익,revenue,1,flow,5,보험사 IFRS17
+27,,IS,매출원가,cost_of_sales,1,flow,1,
+28,,IS,매출총이익,gross_profit,1,flow,1,
+29,,IS,판매비와관리비,sga,1,flow,1,
+30,,CF,영업활동현금흐름,cf_operating,1,flow,1,부호 그대로 (abs 금지)
+31,,CF,영업활동으로 인한 현금흐름,cf_operating,1,flow,2,
+32,,CF,투자활동현금흐름,cf_investing,1,flow,1,
+33,,CF,재무활동현금흐름,cf_financing,1,flow,1,
+34,,BS,당기손익-공정가치측정금융자산,fvtpl_assets,1,balance,1,금융업 (1차 빌드 미매핑 25사)
+35,,BS,기타포괄손익-공정가치측정금융자산,fvoci_assets,1,balance,1,금융업
+36,,BS,상각후원가측정금융자산,amortised_cost_assets,1,balance,1,금융업 (대출채권 포함)
+37,,BS,차입부채,borrowings,1,balance,1,금융업
+38,,BS,예수부채,deposits,1,balance,1,은행
+39,,BS,파생상품자산,derivative_assets,1,balance,1,금융업
+40,,BS,파생상품부채,derivative_liab,1,balance,1,금융업
+41,,BS,보험계약부채,insurance_contract_liab,1,balance,1,보험 IFRS17
+42,,BS,보험계약자산,insurance_contract_assets,1,balance,1,보험 IFRS17
+43,,BS,금융부채,financial_liab,1,balance,1,
+44,,IS,순이자손익,net_interest_income,1,flow,1,은행·증권. 매출 대용 지표 후보
+45,,IS,순수수료손익,net_fee_income,1,flow,1,은행·증권
+46,,IS,금융상품관련순손익,net_financial_instrument_gain,1,flow,1,
+47,,IS,파생상품관련손익,derivative_gain,1,flow,1,
+48,ifrs-full_Revenue,,,revenue,1,flow,1,전체 재무제표 API: 매출액·영업수익 공통 코드
+49,ifrs-full_RevenueFromInterest,,,interest_income,1,flow,1,은행 이자수익
+50,ifrs-full_InterestRevenueExpense,,,net_interest_income,1,flow,1,은행 순이자손익
+51,dart_OperatingIncomeLoss,,,op_income,1,flow,1,
+52,ifrs-full_ProfitLossFromOperatingActivities,,,op_income,1,flow,1,
+53,ifrs-full_ProfitLossBeforeTax,,,pretax_income,1,flow,1,
+54,ifrs-full_ProfitLoss,,,net_income,1,flow,1,CIS 에서만 매핑 (CF·SCE 에도 같은 코드가 있음 - 로더가 sj_div 로 제한)
+55,ifrs-full_ProfitLossAttributableToOwnersOfParent,,,net_income_owners,1,flow,1,
+56,ifrs-full_ComprehensiveIncome,,,comprehensive_income,1,flow,1,
+57,ifrs-full_Assets,,,total_assets,1,balance,1,
+58,ifrs-full_CurrentAssets,,,current_assets,1,balance,1,
+59,ifrs-full_NoncurrentAssets,,,noncurrent_assets,1,balance,1,
+60,ifrs-full_Liabilities,,,total_liab,1,balance,1,
+61,ifrs-full_CurrentLiabilities,,,current_liab,1,balance,1,
+62,ifrs-full_NoncurrentLiabilities,,,noncurrent_liab,1,balance,1,
+63,ifrs-full_Equity,,,total_equity,1,balance,1,계정명이 '자본총계'·'자본 총계' 등으로 흔들려도 코드로 잡힘
+64,ifrs-full_IssuedCapital,,,issued_capital,1,balance,1,
+65,ifrs-full_RetainedEarnings,,,retained_earnings,1,balance,1,
+66,ifrs-full_CashFlowsFromUsedInOperatingActivities,,,cf_operating,1,flow,1,부호 그대로
+67,ifrs-full_CashFlowsFromUsedInInvestingActivities,,,cf_investing,1,flow,1,
+68,ifrs-full_CashFlowsFromUsedInFinancingActivities,,,cf_financing,1,flow,1,

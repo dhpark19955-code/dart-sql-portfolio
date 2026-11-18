@@ -63,6 +63,8 @@ companies (13)  1─<  financials_annual (회사x연도 1행, 백만원)
 | q11 | 1단계 vs 2단계 교차검증 | JOIN + UNPIVOT, IS NOT |
 | q12 | 업종별 수익성·성장 | 3테이블 JOIN, 윈도우 중앙값, POWER |
 | q13 | 성장·수익성·건전성 스크리닝 | 조건부 집계, 복합 플래그, RANK PARTITION |
+| q14 | 공시 이벤트 x 재무 | 유형 플래그, 세로 펼친 창 함수 중앙값, UNION ALL |
+| q15 | 공시 → 이듬해 실적 | LEAD, 뼈대 LEFT JOIN, 그룹 중앙값 |
 
 ## 5. 단계별 계획
 
@@ -85,7 +87,10 @@ companies (13)  1─<  financials_annual (회사x연도 1행, 백만원)
 ### Phase 3 - 선택
 - [x] 분기 데이터로 확장 (2026-11-18): 당기·전기 열 UNPIVOT, 최신 보고서 우선, 4분기 도출, 누적↔3개월 왕복 검증. 상세는 LARGE_SCALE_PLAN.md 6절 1단계
 - [x] 2단계 (2026-11-18): KOSPI 시총 상위 200사 x 사업보고서 2021~2025 를 raw/staging/core/mart 4계층 + dim 4개로 적재, 미매핑 모니터(q10)·교차검증(q11)·업종 프로필(q12)·스크리닝(q13)
+- [x] 3단계 (2026-11-18): 전체 재무제표 API 대체 경로(account_id 매핑), 증분 적재(--incremental), DuckDB 대조(ENGINE_PARITY.md)
+- [x] 4단계 (2026-11-18): 200사 주요사항보고서 778건 유형 분류, 공시 x 재무(q14), 공시 → 이듬해 실적(q15)
 - [ ] 간단한 HTML 대시보드(results 표 렌더링)를 GitHub Pages에
+- [ ] 공시 본문 파싱(합병 비율·조달 금액), 200사 주가 수집
 
 ## 6. 알려진 한계 (README에도 명시)
 - 주식수가 현재 기준이라 과거 시가총액은 근사치

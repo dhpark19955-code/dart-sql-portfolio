@@ -172,10 +172,10 @@ WITH both_ AS (
            a.op_income AS op_p1,  w.op_income AS op_p2,
            a.net_income AS ni_p1, w.net_income AS ni_p2,
            a.total_assets AS ta_p1, w.total_assets AS ta_p2,
-           w.corp_code IS NULL AS not_in_universe
+           CASE WHEN w.corp_code IS NULL THEN 1 ELSE 0 END AS not_in_universe
     FROM financials_annual a
     JOIN companies c ON c.corp_code = a.corp_code
-    LEFT JOIN fin_annual_wide w ON w.corp_code = a.corp_code AND w.fiscal_year = a.fiscal_year AND w.fs_div = a.fs_div
+    LEFT JOIN v_fin_annual w ON w.corp_code = a.corp_code AND w.fiscal_year = a.fiscal_year
     WHERE a.fs_div = 'CFS'
 ),
 diffs AS (
@@ -189,11 +189,11 @@ diffs AS (
 )
 SELECT corp_name, fiscal_year, account, phase1_mn, phase2_mn,
        phase2_mn - phase1_mn AS diff_mn,
-       CASE WHEN not_in_universe THEN 'not in KOSPI top200 universe'
+       CASE WHEN not_in_universe = 1 THEN 'not in KOSPI top200 universe'
             WHEN phase2_mn IS NULL THEN 'phase2 NULL (account not mapped or year not loaded)'
             WHEN phase1_mn = phase2_mn THEN 'same'
             ELSE 'differs - check supplement / restatement' END AS note
 FROM diffs
-WHERE phase1_mn IS NOT phase2_mn           -- 같은 행은 생략 (IS NOT 은 NULL 안전 비교, SQLite 전용)
+WHERE NOT (phase1_mn = phase2_mn) OR (phase1_mn IS NULL) <> (phase2_mn IS NULL)   -- 같은 행은 생략 (NULL 안전, SQLite·DuckDB 공통)
 ORDER BY corp_name, fiscal_year, account;
 ```

@@ -42,7 +42,13 @@ SQL을 고쳤으면 `run_queries.py` 를 다시 돌려 `results/` 를 갱신하�
   - 주요계정 API 함정: 금융업은 2023 사업보고서부터만, 은행 단독·인프라펀드·에코프로머티는 전 연도 없음. 금융 계정 14개는 1차 빌드 미매핑(4.7%)으로 드러나 매핑 추가
   - 핵심 규칙 변경: "한 회사·연도 = 한 보고서(최신)". 계정별 최신 보고서를 고르면 자산·부채(올해 보고서)와 자본(작년 보고서)이 섞여 항등식 실패(금호석유화학·한화 2021)
   - 남은 플래그: SK텔레콤 2022 항등식 -30백만원(API 원값), 한화비전·달바글로벌·한전기술 일부 연도 매출 NULL
-  - 결측 보충은 안 함(2단계는 모니터링까지). 3단계 과제: 전체 재무제표 API 로 대체 수집
+  - 결측 보충은 안 함(2단계는 모니터링까지)
+- [x] 3단계 - 대체 수집·증분 적재·DuckDB (11-18): `stg_fs_full`(전체 재무제표 API, account_id 매핑, `fs_fact.source`), `v_fin_annual`(CFS 우선·없으면 OFS), `build_db.py --incremental`(etl_log.raw_ref + incr_scope), `scripts/run_duckdb.py` → `docs/ENGINE_PARITY.md`
+  - 전체 재무제표 API 도 금융업 2021~2022 와 펀드(맥쿼리인프라·KB발해인프라)는 0행. 은행 단독 법인은 CFS 없음 → OFS
+  - 두 엔진 공통 SQL 을 위해 피한 것 7가지는 ENGINE_PARITY.md. SQLite 가 허용하는 '집계 밖 열'·'별칭 뒤 *'·'상관 서브쿼리 ORDER BY 외부 참조' 는 DuckDB/SQLite 중 한쪽에서 깨짐
+  - 증분 검증법: raw 파일 하나 빼고 전체 빌드 → 넣고 --incremental → 체크섬(행 수·합계) 비교
+- [x] 4단계 - 공시 이벤트 결합 (11-18): 200사 주요사항보고서 778건(`data/raw/layered_filings`, helper 전사·6사 56건 대조), `filings_universe` 유형 분류, q14·q15
+  - 주가는 200사에 없어 q7 확장은 안 함. 공시 본문 파싱(금액·대상)은 미구현
 
 남은 작업
 1. **GitHub 배포 (새 public 레포 `dart-sql-portfolio`)**: 사용자가 2026-11-18 "새 레포로 push" 승인. 대상 계정 = `dhpark19955-code`(사용자 지정).
@@ -64,7 +70,7 @@ powershell -ExecutionPolicy Bypass -File .\publish_github.ps1
    - 스크립트 자체는 `.gitignore` 로 레포에서 제외. `.git` 은 이미 init·스테이징만 된 상태(커밋 없음)
    - 2026-11-18 가짜 gh 로 사본에서 시험 완료(정상 경로·origin 기존 경로·키 원문 차단). 실제 GitHub 생성·push 는 미검증
 
-2. **3단계** (기획): 전체 재무제표 API 로 금융업·결측 회사 대체 수집, DuckDB 이전, 증분 적재. `docs/LARGE_SCALE_PLAN.md` 6절
+2. (선택) 공시 본문 파싱(합병 비율·조달 금액)으로 q15 를 금액 기준으로, 200사 주가 수집으로 q7 확장
 3. (선택) PostgreSQL 호환성: q7 의 `PARTITION BY yr, range_pct IS NULL`, `SUBSTR` 등은 Postgres 에서도 동작하지만 실제 검증은 안 함.
 
 ## 파일 역할 요약
@@ -80,4 +86,5 @@ powershell -ExecutionPolicy Bypass -File .\publish_github.ps1
 | `sql/03_schema_layered.sql` | 2단계 계층 테이블(dim_*, stg_fs_line, fs_fact, fin_annual_wide, etl_log) |
 | `sql/04_load_layered.sql` | 2단계 staging → core → mart + 품질점검 뷰 |
 | `data/dim/*.csv` | 사람이 관리하는 보조테이블 원본 (매핑 추가는 여기에 행 추가 → 재빌드) |
-| `sql/q1~q13` | 분석 쿼리 (q8 분기 품질, q9 분기 추세, q10 유니버스 모니터, q11 교차검증, q12 업종, q13 스크리닝) |
+| `scripts/run_duckdb.py` | 같은 03/04/q10~q15 를 DuckDB 로 실행해 SQLite 와 대조 → docs/ENGINE_PARITY.md |
+| `sql/q1~q15` | 분석 쿼리 (q8 분기 품질, q9 분기 추세, q10 유니버스 모니터, q11 교차검증, q12 업종, q13 스크리닝, q14 공시x재무, q15 공시→이듬해) |

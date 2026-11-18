@@ -109,7 +109,9 @@ erDiagram
 | q10 | 200사 매핑·커버리지 모니터 | v_qc_unmapped_accounts, v_qc_company_coverage | 뷰 위 `UNION ALL`, 조건부 집계 |
 | q11 | 1단계 vs 2단계 교차검증 | financials_annual, fin_annual_wide, companies | `JOIN` + `UNION ALL` UNPIVOT, `IS NOT` |
 | q12 | 업종별 수익성·성장 | dim_company, dim_industry, fin_annual_wide | 윈도우 중앙값(`ROW_NUMBER`+`COUNT OVER`), `POWER` CAGR, `HAVING` |
-| q13 | 성장·수익성·건전성 스크리닝 | dim_company, dim_industry, fin_annual_wide | 조건부 집계, 복합 플래그, `RANK() OVER (PARTITION BY)` |
+| q13 | 성장·수익성·건전성 스크리닝 | dim_company, dim_industry, v_fin_annual | 조건부 집계, 복합 플래그, `RANK() OVER (PARTITION BY)` |
+| q14 | 공시 이벤트 x 재무 | filings_universe, v_fin_annual, dim_industry | 유형 플래그, 지표 세로 펼침 + 창 함수 중앙값, `UNION ALL` |
+| q15 | 공시 → 이듬해 실적 | filings_universe, v_fin_annual | `LEAD`, 뼈대 `LEFT JOIN`, 그룹 중앙값 |
 
 ## 5. 2단계 계층 파이프라인 (KOSPI 시총 상위 200사)
 
@@ -171,3 +173,12 @@ erDiagram
 ```
 
 1단계와 다른 점 세 가지. (1) 계정 매핑이 SQL 의 `CASE WHEN` 이 아니라 `dim_account_map` 테이블이라, 새 계정명은 CSV 에 행을 추가하고 재빌드하면 된다. (2) core(`fs_fact`)는 세로(long) 형태로 모든 계정을 보존하고 미매핑도 `std_account NULL` 로 남겨, 무엇이 빠졌는지 뷰로 센다. (3) 한 회사·연도의 숫자는 보고서 하나에서만 가져온다. 계정마다 최신 보고서를 따로 고르면 자산·부채와 자본의 출처가 달라져 항등식이 깨진다(1차 빌드에서 2사 발견).
+
+## 6. 3~4단계에서 더해진 것
+
+- **두 번째 staging** `stg_fs_full`(전체 재무제표 API, account_id 포함)과 세 번째 `stg_filings_u`(공시 목록). core 로 갈 때 `src` CTE 에서 두 재무 소스를 UNION 하고 `source_rank` 로 주요계정 API 를 우선한다.
+- **매핑 2단**: `account_id` 가 있으면 코드로(`ifrs-full_Equity` 는 "자본총계"·"자본 총계" 를 모두 잡음), 없으면 (sj_div, 계정명). `mapped` CTE 의 ROW_NUMBER 가 코드 매핑을 앞세운다.
+- **`v_fin_annual` 뷰**: 회사·연도에 연결(CFS)이 있으면 연결, 없으면 별도(OFS). q10 이후 분석 쿼리는 전부 이 뷰를 읽는다.
+- **`incr_scope`**: build_db.py 가 매 실행마다 채우는 회사 목록. 04 SQL 의 core·mart·filings 단계가 전부 이 표와 JOIN 하므로, 전체 빌드와 증분 적재가 같은 SQL 을 쓴다.
+- **공시 유형 분류**: `filings_universe.event_type` 은 04 의 CASE 로 제목 키워드를 분류한다. 규칙이 바뀌면 재빌드로 재분류된다.
+- **엔진 이식성**: `scripts/run_duckdb.py` 가 03·04·q10~q15 를 DuckDB 로 실행해 SQLite 와 대조한다. 피한 문법은 `docs/ENGINE_PARITY.md`.

@@ -17,7 +17,7 @@ POWER 로 4년 CAGR(FY2021 -> FY2025), 회사 수 3개 이상 업종만 (HAVING)
 | 도소매            | 도매            |       7 |             0 |        106,564 |                  5.8 |                8.1 |                  1.9 | 영원무역              |
 | 도소매            | 소매            |       7 |             0 |         78,956 |                  2.9 |                2.8 |                  2.9 | 현대백화점             |
 | 제조업            | 기타운송장비(조선·항공) |       7 |             0 |         78,481 |                 11.1 |               11.6 |                 26.3 | 대한조선              |
-| 제조업            | 전기장비          |      14 |             0 |         69,905 |                  3.8 |                5.7 |                 10.1 | 산일전기              |
+| 제조업            | 전기장비          |      14 |             0 |         70,297 |                  3.6 |                4.6 |                 10.1 | 산일전기              |
 | 건설업            | 종합건설          |       5 |             0 |         63,117 |                  1.4 |                3.5 |                  7.8 | IPARK현대산업개발       |
 | 정보통신           | 통신            |       3 |             0 |         60,795 |                  7.3 |                6.3 |                  2.3 | KT                |
 | 제조업            | 식료품           |       6 |             0 |         44,432 |                  6.3 |                5   |                  4.8 | 삼양식품              |
@@ -46,8 +46,8 @@ WITH base AS (
            100.0 * w25.op_income / NULLIF(w25.revenue, 0) AS opm25
     FROM dim_company d
     JOIN dim_industry i ON i.ksic2 = SUBSTR(d.induty_code, 1, 2)
-    LEFT JOIN fin_annual_wide w25 ON w25.corp_code = d.corp_code AND w25.fiscal_year = 2025 AND w25.fs_div = 'CFS'
-    LEFT JOIN fin_annual_wide w21 ON w21.corp_code = d.corp_code AND w21.fiscal_year = 2021 AND w21.fs_div = 'CFS'
+    LEFT JOIN v_fin_annual w25 ON w25.corp_code = d.corp_code AND w25.fiscal_year = 2025
+    LEFT JOIN v_fin_annual w21 ON w21.corp_code = d.corp_code AND w21.fiscal_year = 2021
 ),
 ranked AS (
     SELECT *,
@@ -60,17 +60,17 @@ median AS (
     -- 중앙값: 정렬 순번이 가운데 1~2개인 행의 평균
     SELECT sector_mid, AVG(opm25) AS opm25_median
     FROM ranked
-    WHERE rn IN ((cnt + 1) / 2, (cnt + 2) / 2)
+    WHERE rn IN (CAST(FLOOR((cnt + 1) / 2.0) AS INTEGER), CAST(FLOOR((cnt + 2) / 2.0) AS INTEGER))
     GROUP BY sector_mid
 ),
 sector AS (
     SELECT b.sector_major, b.sector_mid,
            COUNT(*)                                                            AS n_cos,
            SUM(b.is_financial)                                                 AS n_financial,
-           ROUND(SUM(CASE WHEN b.is_financial = 0 THEN b.rev25 END) / 1000.0, 0) AS rev25_sum_bn,
+           CAST(ROUND(SUM(CASE WHEN b.is_financial = 0 THEN b.rev25 END) / 1000.0, 0) AS BIGINT) AS rev25_sum_bn,
            ROUND(100.0 * SUM(CASE WHEN b.is_financial = 0 THEN b.op25 END)
                        / NULLIF(SUM(CASE WHEN b.is_financial = 0 THEN b.rev25 END), 0), 1) AS opm25_weighted_pct,
-           ROUND(m.opm25_median, 1)                                            AS opm25_median_pct,
+           ROUND(MAX(m.opm25_median), 1)                                       AS opm25_median_pct,   -- 집계 밖 열 금지 (DuckDB), 값은 업종당 1개
            ROUND(100.0 * (POWER(SUM(CASE WHEN b.is_financial = 0 AND b.rev21 > 0 THEN b.rev25 END) * 1.0
                                / NULLIF(SUM(CASE WHEN b.is_financial = 0 AND b.rev21 > 0 THEN b.rev21 END), 0), 0.25) - 1), 1)
                                                                                AS rev_cagr_21_25_pct,

@@ -39,7 +39,7 @@ WITH y AS (
            MAX(CASE WHEN w.fiscal_year = 2025 THEN w.total_equity END) AS equity25
     FROM dim_company d
     JOIN dim_industry i ON i.ksic2 = SUBSTR(d.induty_code, 1, 2)
-    JOIN fin_annual_wide w ON w.corp_code = d.corp_code AND w.fs_div = 'CFS'
+    JOIN v_fin_annual w ON w.corp_code = d.corp_code
     WHERE i.is_financial = 0
     GROUP BY d.corp_code, d.corp_name, i.sector_mid
 ),
@@ -53,11 +53,12 @@ m AS (
 ),
 flagged AS (
     SELECT *,
-           (rev_cagr_pct >= 10) + (opm25_pct >= 10) + (debt_ratio_pct <= 100) + (min_op_23_25 > 0) AS n_pass
+           (CASE WHEN rev_cagr_pct >= 10 THEN 1 ELSE 0 END) + (CASE WHEN opm25_pct >= 10 THEN 1 ELSE 0 END)
+         + (CASE WHEN debt_ratio_pct <= 100 THEN 1 ELSE 0 END) + (CASE WHEN min_op_23_25 > 0 THEN 1 ELSE 0 END) AS n_pass
     FROM m
 )
 SELECT corp_name, sector_mid,
-       ROUND(rev25 / 1000.0, 0) AS rev25_bn,
+       CAST(ROUND(rev25 / 1000.0, 0) AS BIGINT) AS rev25_bn,
        rev_cagr_pct, opm25_pct, debt_ratio_pct,
        CASE WHEN min_op_23_25 > 0 THEN 'Y' ELSE '' END AS op_positive_3y,
        n_pass,

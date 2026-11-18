@@ -1,8 +1,10 @@
-.env
-__pycache__/
-*.pyc
-.ipynb_checkpoints/
-# 산출물은 커밋 대상 - DB는 작아서 포함 (약 1MB). 커지면 아래 주석 해제
 # dart_sector.db
 # 배포 도우미 스크립트 (레포 내용 아님)
+# 산출물은 커밋 대상 - DB는 작아서 포함 (약 1MB). 커지면 아래 주석 해제
+*.pyc
+.env
+.ipynb_checkpoints/
+__pycache__/
+_parity_tmp.db
+dart_sector.duckdb
 publish_github.ps1

@@ -3,3 +3,4 @@ requests>=2.31
 yfinance>=0.2.40
 finance-datareader>=0.9.90
 tabulate>=0.9
+duckdb>=1.0          # 선택: scripts/run_duckdb.py 엔진 대조용
