@@ -78,6 +78,93 @@ SELECT corp_code, fiscal_year, fs_div, current_assets, total_assets, current_lia
        total_liab, total_equity, revenue, op_income, net_income, source_rcept_no
 FROM pivoted;
 
+-- ---------- financials_quarter ----------
+-- (1) 보고서코드 -> 분기 번호, 문자열 금액 -> 정수. 손익 계정은 UNPIVOT:
+--     당기 열(thstrm) = 그 해 분기 3개월, 전기 열(frmtrm) = 전년 같은 분기 3개월을 최신 기준으로 재표시한 값
+--     재무상태표의 전기 열은 "전년 말 잔액"이라 분기 행으로 쓰지 않는다
+-- (2) 같은 회사·분기·계정이 여러 보고서에 있으면 최신 접수번호 1건 (ROW_NUMBER)
+--     -> 이듬해 분기보고서가 있으면 그 전기 열이 당해 보고서의 당기 열을 이긴다 (중단영업 재분류 등 반영)
+-- (3) 계정 PIVOT, 백만원
+-- (4) 4분기 도출: financials_annual(최신 보고 기준 연간) - 1~3분기 합. 1~3분기 중 하나라도 없으면 NULL
+--     분기(최신 보고서 우선)와 연간(최신 보고서 우선)이 같은 기준이 되도록 맞춘 것.
+--     연중에 재분류가 생기면(카카오게임즈 2023: 3분기 보고서부터 중단영업 분리) 그 해는 기준이 섞여 4분기가 왜곡된다 -> q8 점검 3
+-- (5) 연초누적 = 3개월값의 누적합 (SUM OVER ... ROWS UNBOUNDED PRECEDING)
+WITH
+q_raw AS (
+    SELECT corp_code, rcept_no, fs_div, account_nm,
+           CAST(bsns_year AS INTEGER) AS fiscal_year,
+           CASE reprt_code WHEN '11013' THEN 1 WHEN '11012' THEN 2 WHEN '11014' THEN 3 END AS quarter,
+           CASE WHEN TRIM(thstrm_amount) IN ('', '-') THEN NULL
+                ELSE CAST(REPLACE(TRIM(thstrm_amount), ',', '') AS INTEGER) END AS amount_krw
+    FROM stg_dart_key_accounts_q
+    UNION ALL
+    SELECT corp_code, rcept_no, fs_div, account_nm,
+           CAST(bsns_year AS INTEGER) - 1 AS fiscal_year,
+           CASE reprt_code WHEN '11013' THEN 1 WHEN '11012' THEN 2 WHEN '11014' THEN 3 END AS quarter,
+           CASE WHEN TRIM(frmtrm_amount) IN ('', '-') THEN NULL
+                ELSE CAST(REPLACE(TRIM(frmtrm_amount), ',', '') AS INTEGER) END AS amount_krw
+    FROM stg_dart_key_accounts_q
+    WHERE sj_div <> 'BS'                              -- 손익 계정만 전기 열을 쓴다
+      AND TRIM(COALESCE(frmtrm_amount, '')) NOT IN ('', '-')
+),
+q_dedup AS (
+    SELECT *,
+           ROW_NUMBER() OVER (PARTITION BY corp_code, fs_div, fiscal_year, quarter, account_nm
+                              ORDER BY rcept_no DESC) AS rn
+    FROM q_raw
+    WHERE quarter IS NOT NULL
+      -- 전기 열만으로 생기는 연도(수집 첫해의 전년)는 제외: 자기 분기보고서가 있는 연도만 적재
+      AND fiscal_year IN (SELECT DISTINCT CAST(bsns_year AS INTEGER) FROM stg_dart_key_accounts_q)
+),
+q_pivot AS (
+    SELECT corp_code, fiscal_year, quarter, fs_div,
+           MAX(CASE WHEN account_nm = '유동자산'       THEN amount_krw END) / 1000000 AS current_assets,
+           MAX(CASE WHEN account_nm = '자산총계'       THEN amount_krw END) / 1000000 AS total_assets,
+           MAX(CASE WHEN account_nm = '유동부채'       THEN amount_krw END) / 1000000 AS current_liab,
+           MAX(CASE WHEN account_nm = '부채총계'       THEN amount_krw END) / 1000000 AS total_liab,
+           MAX(CASE WHEN account_nm = '자본총계'       THEN amount_krw END) / 1000000 AS total_equity,
+           MAX(CASE WHEN account_nm = '매출액'         THEN amount_krw END) / 1000000 AS revenue,
+           MAX(CASE WHEN account_nm = '영업이익'       THEN amount_krw END) / 1000000 AS op_income,
+           MAX(CASE WHEN account_nm LIKE '당기순이익%' THEN amount_krw END) / 1000000 AS net_income,
+           MAX(rcept_no) AS source_rcept_no
+    FROM q_dedup
+    WHERE rn = 1
+    GROUP BY corp_code, fiscal_year, quarter, fs_div
+),
+q4 AS (
+    SELECT a.corp_code, a.fiscal_year, 4 AS quarter, a.fs_div,
+           a.current_assets, a.total_assets, a.current_liab, a.total_liab, a.total_equity,
+           CASE WHEN COUNT(p.revenue)    = 3 THEN a.revenue    - SUM(p.revenue)    END AS revenue,
+           CASE WHEN COUNT(p.op_income)  = 3 THEN a.op_income  - SUM(p.op_income)  END AS op_income,
+           CASE WHEN COUNT(p.net_income) = 3 THEN a.net_income - SUM(p.net_income) END AS net_income,
+           a.source_rcept_no
+    FROM financials_annual a
+    JOIN q_pivot p ON p.corp_code = a.corp_code AND p.fiscal_year = a.fiscal_year AND p.fs_div = a.fs_div
+    GROUP BY a.corp_code, a.fiscal_year, a.fs_div
+),
+all_q AS (
+    SELECT corp_code, fiscal_year, quarter, fs_div, current_assets, total_assets, current_liab,
+           total_liab, total_equity, revenue, op_income, net_income, 0 AS is_derived, source_rcept_no
+    FROM q_pivot
+    UNION ALL
+    SELECT corp_code, fiscal_year, quarter, fs_div, current_assets, total_assets, current_liab,
+           total_liab, total_equity, revenue, op_income, net_income, 1 AS is_derived, source_rcept_no
+    FROM q4
+)
+INSERT INTO financials_quarter
+    (corp_code, fiscal_year, quarter, fs_div, current_assets, total_assets, current_liab, total_liab,
+     total_equity, revenue, op_income, net_income, revenue_cum, op_income_cum, net_income_cum,
+     is_derived, source_rcept_no)
+SELECT corp_code, fiscal_year, quarter, fs_div, current_assets, total_assets, current_liab, total_liab,
+       total_equity, revenue, op_income, net_income,
+       SUM(revenue)    OVER w AS revenue_cum,
+       SUM(op_income)  OVER w AS op_income_cum,
+       SUM(net_income) OVER w AS net_income_cum,
+       is_derived, source_rcept_no
+FROM all_q
+WINDOW w AS (PARTITION BY corp_code, fiscal_year, fs_div ORDER BY quarter
+             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW);
+
 -- ---------- prices_daily ----------
 -- yfinance는 가끔 같은 날짜가 두 번 오거나 close가 NULL인 행을 준다 -> 둘 다 걸러낸다
 INSERT INTO prices_daily (stock_code, trade_date, close, adj_close, volume)

@@ -53,6 +53,23 @@ CREATE TABLE stg_shares_outstanding (
     as_of_date  TEXT
 );
 
+-- 분기보고서(1Q 11013 / 반기 11012 / 3Q 11014) 주요계정. 이 스냅샷의 thstrm_amount 는 당기 3개월값
+-- (원 API 에는 누적 열 thstrm_add_amount 가 따로 있으나 수집 경로에서 빠짐)
+DROP TABLE IF EXISTS stg_dart_key_accounts_q;
+CREATE TABLE stg_dart_key_accounts_q (
+    rcept_no         TEXT,
+    bsns_year        TEXT,
+    reprt_code       TEXT,   -- 11013 / 11012 / 11014
+    corp_code        TEXT,
+    stock_code       TEXT,
+    fs_div           TEXT,
+    sj_div           TEXT,
+    account_nm       TEXT,
+    thstrm_amount    TEXT,   -- 당기 3개월 (BS 는 분기말 잔액)
+    frmtrm_amount    TEXT,
+    currency         TEXT
+);
+
 -- KRX 목록에 없는 종목(상장폐지 등)의 주식수를 사람이 보충. source에 근거를 적는다
 DROP TABLE IF EXISTS stg_shares_manual;
 CREATE TABLE stg_shares_manual (
@@ -120,6 +137,30 @@ CREATE TABLE shares_outstanding (
     shares     INTEGER NOT NULL,
     as_of_date TEXT NOT NULL,
     source     TEXT NOT NULL DEFAULT 'KRX'        -- 'KRX' 또는 수기 보충 근거
+);
+
+-- 회사 x 회계연도 x 분기 1행. 손익은 3개월값과 연초누적을 둘 다 둔다 (백만원)
+-- 4분기는 분기보고서가 없으므로 사업보고서 연간값 - 1~3분기 합으로 도출 (is_derived = 1)
+DROP TABLE IF EXISTS financials_quarter;
+CREATE TABLE financials_quarter (
+    corp_code        TEXT NOT NULL REFERENCES companies(corp_code),
+    fiscal_year      INTEGER NOT NULL,
+    quarter          INTEGER NOT NULL CHECK (quarter BETWEEN 1 AND 4),
+    fs_div           TEXT NOT NULL DEFAULT 'CFS',
+    current_assets   INTEGER,                      -- 재무상태표: 분기말 잔액
+    total_assets     INTEGER,
+    current_liab     INTEGER,
+    total_liab       INTEGER,
+    total_equity     INTEGER,
+    revenue          INTEGER,                      -- 손익: 3개월
+    op_income        INTEGER,
+    net_income       INTEGER,
+    revenue_cum      INTEGER,                      -- 손익: 연초부터 누적
+    op_income_cum    INTEGER,
+    net_income_cum   INTEGER,
+    is_derived       INTEGER NOT NULL DEFAULT 0,   -- 1 = 4분기 도출값
+    source_rcept_no  TEXT,
+    PRIMARY KEY (corp_code, fiscal_year, quarter, fs_div)
 );
 
 -- 공시 1건 1행. 정정공시도 별도 rcept_no 로 들어온다

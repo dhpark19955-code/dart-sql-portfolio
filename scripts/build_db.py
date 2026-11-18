@@ -26,7 +26,20 @@ CSV_TO_STAGING = {
     "companies.csv":                         "stg_companies",
     "dart_key_accounts_fy2025.csv":          "stg_dart_key_accounts",   # FY2023~2025
     "dart_key_accounts_fy2022.csv":          "stg_dart_key_accounts",   # FY2020~2022
+    "dart_key_accounts_fy2023.csv":          "stg_dart_key_accounts",   # FY2021~2023 (4분기 도출용 당초 보고값)
+    "dart_key_accounts_fy2024.csv":          "stg_dart_key_accounts",   # FY2022~2024 (4분기 도출용 당초 보고값)
     "dart_revenue_supplement_fy2022.csv":    "stg_dart_key_accounts",   # 주요계정 API에 매출액이 빠진 3사 보충
+    # 분기보고서 주요계정 (1Q/반기/3Q x 2023~2025) + 계정명이 달라 빠진 행 보충
+    "dart_key_accounts_q_fy2023_11013.csv":  "stg_dart_key_accounts_q",
+    "dart_key_accounts_q_fy2023_11012.csv":  "stg_dart_key_accounts_q",
+    "dart_key_accounts_q_fy2023_11014.csv":  "stg_dart_key_accounts_q",
+    "dart_key_accounts_q_fy2024_11013.csv":  "stg_dart_key_accounts_q",
+    "dart_key_accounts_q_fy2024_11012.csv":  "stg_dart_key_accounts_q",
+    "dart_key_accounts_q_fy2024_11014.csv":  "stg_dart_key_accounts_q",
+    "dart_key_accounts_q_fy2025_11013.csv":  "stg_dart_key_accounts_q",
+    "dart_key_accounts_q_fy2025_11012.csv":  "stg_dart_key_accounts_q",
+    "dart_key_accounts_q_fy2025_11014.csv":  "stg_dart_key_accounts_q",
+    "dart_key_accounts_q_supplement.csv":    "stg_dart_key_accounts_q",
     "prices_daily.csv":                      "stg_prices_daily",
     "shares_outstanding.csv":                "stg_shares_outstanding",
     "shares_manual.csv":                     "stg_shares_manual",
@@ -65,7 +78,7 @@ def main() -> None:
     run_sql_file(conn, SQL / "02_load_clean.sql")
     conn.commit()
 
-    for t in ("companies", "financials_annual", "prices_daily", "shares_outstanding", "filings"):
+    for t in ("companies", "financials_annual", "financials_quarter", "prices_daily", "shares_outstanding", "filings"):
         n = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
         print(f"   {t:20s} {n:>7,} rows")
     conn.close()
